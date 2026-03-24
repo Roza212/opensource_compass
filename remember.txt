@@ -66,3 +66,8 @@ History of Changes - Gemini Integration Fixes
 - What: Finalized `main.py` by integrating the `<generate_mermaid_chart>` script and retrofitting every active router path (`/ingest`, `/embed`, `/graph`, etc.) with universal comprehensive exception handling (`try-except HTTP 500 Server Error`).
 - Why: 1. To expose Phase 5 capabilities to the React frontend. 2. To ensure that parsing failures, missing repos, or API outages correctly bubble upwards as standard API JSON error flags instead of unexpectedly terminating the global Uvicorn process.
 - How: Heavily refactored `main.py`, preserving functional core logic but injecting strict `try/except` guardrails around the Pydantic routes, returning raw `str(e)` errors safely back to the Swagger dashboard.
+
+12. INSTALLING WATCHFILES FOR RELOAD EXCLUSION
+- What: Installed the `watchfiles` python package and appended it to dependencies.
+- Why: Uvicorn `--reload` was constantly crashing/reloading the server during `/ingest` because it detects thousands of new files being dumped into `temp_repos`. When we tried to use `--reload-exclude "temp_repos"`, Uvicorn returned a warning stating the flag only works if `watchfiles` is installed securely.
+- How: Added `watchfiles` to `requirements.txt` and generated the `pip install` command.
