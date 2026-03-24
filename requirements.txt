@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pydantic
+GitPython
+tree-sitter>=0.22.0
+tree-sitter-python>=0.23.0
+networkx
+supabase
+sentence-transformers
+python-dotenv
+langchain
+langchain-google-genai
+langchain-community
+google-genai

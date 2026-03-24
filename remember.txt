@@ -1,0 +1,39 @@
+History of Changes - Gemini Integration Fixes
+
+1. INVESTIGATING 404 NOT_FOUND ERROR
+- What: Investigated `test_gemini.py` failing with a 404 error on `gemini-1.5-flash`.
+- Why: The provided API key/account did not have access to or no longer supported that specific model.
+- How: Listed available models via Python SDK and updated `test_gemini.py` and `chat_engine.py` to use `gemini-2.0-flash`.
+
+2. INVESTIGATING 429 BURST ERRORS (RATE LIMITING)
+- What: Discovered 40+ `429 TooManyRequests` errors appearing on the Google AI Studio dashboard simply from running a test script.
+- Why: Google's Free Tier strictly enforces 15 requests-per-minute. The `langchain-google-genai` wrapper had an aggressive automatic retry mechanism; when the script hit the limit, Langchain rapidly retried dozens of times in the background.
+- How: Added `max_retries=1` to the `ChatGoogleGenerativeAI` constructor in `test_gemini.py` to fail fast, and `max_retries=2` in `chat_engine.py` to prevent hanging. Also added explicit 429 quota exception handling in `main.py`.
+
+3. BYPASSING THE LOCKED QUOTA
+- What: The `gemini-2.0-flash` 15-RPM quota bucket was continuously maxed out (locked) by background processes or past loops.
+- Why: We needed a way to test and use the API immediately without being rate-limited.
+- How: Discovered through testing that newer models have separate quota buckets, so updated `test_gemini.py` and `chat_engine.py` to use `gemini-2.5-flash` instead.
+
+4. MIGRATING TO GEMINI-3-FLASH-PREVIEW
+- What: The user reviewed documentation showing `gemini-3-flash-preview` and wanted to try it.
+- Why: To use the newest experimental model and enjoy a completely fresh quota bucket.
+- How: 
+   - Replaced `gemini-2.5-flash` with `gemini-3-flash-preview` in both scripts.
+   - Discovered the new 'gemini-3' model returns its response as a list of dictionaries (parts) instead of a plain string.
+   - Updated the print statement in `test_gemini.py` to cleanly extract actual text (`"".join(part.get("text", "")...)`) so it displays properly in the terminal.
+
+5. UPDATING PROJECT DEPENDENCIES
+- What: Installed the new offical raw SDK `google-genai`.
+- Why: The user requested to install it (`pip install -q -U google-genai`).
+- How: Ran the install command and permanently appended `google-genai` to `requirements.txt`.
+
+6. PROFESSIONAL GITHUB DIRECTORY REFACTORING
+- What: Restructured the entire flat project repository into standardized `app/` and `tests/` directories.
+- Why: The user requested a professional codebase structure suitable for uploading to GitHub, keeping core logic separated from testing scripts.
+- How: 
+   - Created the `app/` python package (with `__init__.py`) and moved `chat_engine.py`, `chunker.py`, `git_service.py`, `graph_builder.py`, `parser.py`, `prompts.py`, and `vector_store.py` into it.
+   - Created the `tests/` python package and moved all `test_*.py` and `models.txt` files into it.
+   - Updated `main.py` and internal application logic files to use absolute package imports (`from app.module_name import ...`).
+   - Configured sys.path in `test_embed.py` so the tests run cleanly from their new isolated directory.
+   - Created a `.gitignore` to protect `.env`, `temp_repos/`, `venv/`, and `__pycache__` from being accidentally committed.

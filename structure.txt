@@ -1,0 +1,25 @@
+opensource_compass_backend/
+├── app/                  # Main application package with core logic
+│   ├── __init__.py
+│   ├── chat_engine.py
+│   ├── chunker.py
+│   ├── git_service.py
+│   ├── graph_builder.py
+│   ├── parser.py
+│   ├── prompts.py
+│   └── vector_store.py
+├── tests/                # Testing scripts and assets
+│   ├── __init__.py
+│   ├── models.txt
+│   ├── test_chat.py
+│   ├── test_embed.py
+│   ├── test_gemini.py
+│   ├── test_openai.py
+│   └── test_supabase.py
+├── temp_repos/           # (Gitignored) Temporary storage for cloned repos
+├── .env                  # (Gitignored) Environment variables and secrets
+├── .gitignore            # Git ignore configuration
+├── main.py               # FastAPI entrypoint
+├── remember.txt          # History of codebase changes
+├── requirements.txt      # Python dependencies
+└── structure.txt         # This file (Current Codebase Structure)
