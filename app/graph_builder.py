@@ -1,6 +1,6 @@
 import os
 import networkx as nx
-from parser import extract_imports_from_file
+from app.parser import extract_imports_from_file
 
 def build_repo_graph(repo_path: str) -> dict:
     G = nx.DiGraph()

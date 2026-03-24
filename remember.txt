@@ -35,5 +35,24 @@ History of Changes - Gemini Integration Fixes
    - Created the `app/` python package (with `__init__.py`) and moved `chat_engine.py`, `chunker.py`, `git_service.py`, `graph_builder.py`, `parser.py`, `prompts.py`, and `vector_store.py` into it.
    - Created the `tests/` python package and moved all `test_*.py` and `models.txt` files into it.
    - Updated `main.py` and internal application logic files to use absolute package imports (`from app.module_name import ...`).
-   - Configured sys.path in `test_embed.py` so the tests run cleanly from their new isolated directory.
    - Created a `.gitignore` to protect `.env`, `temp_repos/`, `venv/`, and `__pycache__` from being accidentally committed.
+
+7. DEPLOYING TO GITHUB
+- What: Generated a professional `README.md` and uploaded the entire repository to GitHub (`https://github.com/Roza212/opensource_compass.git`).
+- Why: The user requested a professional GitHub layout and automated push so the codebase can be showcased publicly.
+- How: 
+   - Authored an extensive `README.md` documenting the RAG architecture, FastAPI endpoints, Gemini 3 Flash Preview integration, and pgvector Supabase schema.
+   - Linked the remote GitHub branch and executed `git push -u origin main`.
+
+8. END-TO-END SYSTEM TESTING
+- What: Activated the FastAPI `uvicorn` development server and executed `tests/test_chat.py`.
+- Why: To verify that the fully refactored structural codebase, new Google Gemini API keys, and LangChain endpoints all interact together seamlessly.
+- How: 
+   - `uvicorn` successfully served the endpoints on port 8000.
+   - The test script invoked `http://127.0.0.1:8000/chat` successfully.
+   - The LangChain RAG pipeline processed the request and Gemini 3 Flash Preview generated a properly formatted JSON answer without any Rate Limit or ModuleNotFoundError crashes!
+
+9. ARCHITECTURE OPTIMIZATION: FASTAPI STARTUP
+- What: Implemented a Lazy-Loading strategy for the PyTorch `SentenceTransformer` model in `vector_store.py`.
+- Why: The FastAPI `uvicorn` development server was taking 3-10+ seconds to boot and reload because the global declaration forced the 80MB embedding model to load into RAM synchronously at startup, significantly slowing down the codebase development lifecycle.
+- How: Converted the strict `model` initialization into a `_model` global variable tracked by a `get_model()` function. Now, the model statically waits until a user specifically requests the `/embed` or `/search` endpoints before touching the RAM.
