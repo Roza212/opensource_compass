@@ -8,6 +8,7 @@
 - **Vector Database (pgvector)**: Integrates with Supabase to generate and store high-dimensional text embeddings locally via `SentenceTransformers` (`all-MiniLM-L6-v2`).
 - **Semantic Code Search**: Employs Supabase RPC vector similarity search to instantly retrieve the most relevant codebase blocks matching natural language queries.
 - **LCEL RAG Chat Engine**: Pipes retrieved technical context securely through LangChain into **Google's Gemini 3 Flash Preview** model to provide senior-developer level interactive explanations.
+- **Mermaid Architecture Maps**: Instantly transforms complex AST python module imports into beautiful, interactive `graph TD` flowcharts via the `/diagram` endpoint!
 
 ## 🏗️ Architecture Stack
 - **API Framework**: FastAPI & Uvicorn (Fully Async)

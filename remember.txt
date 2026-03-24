@@ -56,3 +56,13 @@ History of Changes - Gemini Integration Fixes
 - What: Implemented a Lazy-Loading strategy for the PyTorch `SentenceTransformer` model in `vector_store.py`.
 - Why: The FastAPI `uvicorn` development server was taking 3-10+ seconds to boot and reload because the global declaration forced the 80MB embedding model to load into RAM synchronously at startup, significantly slowing down the codebase development lifecycle.
 - How: Converted the strict `model` initialization into a `_model` global variable tracked by a `get_model()` function. Now, the model statically waits until a user specifically requests the `/embed` or `/search` endpoints before touching the RAM.
+
+10. PHASE 5: MERMAID GRAPH VISUALIZATION
+- What: Created `app/diagram_generator.py` with a `generate_mermaid_chart` mapping function.
+- Why: The user initiated Phase 5 of the OpenSource Compass project, intending to visually map the repository ast architecture using the Mermaid JS charting UI.
+- How: The function correctly traps internal `NetworkX` json data, iterates through all `['links']`, sanitizes internal file paths into valid underscores via `regex`, and constructs an exhaustive `graph TD;\n` string block populated entirely with format `{safe_source}["{source}"] --> {safe_target}["{target}"]`.
+
+11. FASTAPI RESILIENCE & /DIAGRAM INTEGRATION
+- What: Finalized `main.py` by integrating the `<generate_mermaid_chart>` script and retrofitting every active router path (`/ingest`, `/embed`, `/graph`, etc.) with universal comprehensive exception handling (`try-except HTTP 500 Server Error`).
+- Why: 1. To expose Phase 5 capabilities to the React frontend. 2. To ensure that parsing failures, missing repos, or API outages correctly bubble upwards as standard API JSON error flags instead of unexpectedly terminating the global Uvicorn process.
+- How: Heavily refactored `main.py`, preserving functional core logic but injecting strict `try/except` guardrails around the Pydantic routes, returning raw `str(e)` errors safely back to the Swagger dashboard.

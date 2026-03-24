@@ -8,6 +8,7 @@ from app.graph_builder import build_repo_graph
 from app.chunker import chunk_python_file
 from app.vector_store import store_chunks_in_supabase, search_code
 from app.chat_engine import generate_explanation
+from app.diagram_generator import generate_mermaid_chart
 
 app = FastAPI()
 
@@ -27,57 +28,96 @@ async def health_check():
 
 @app.post("/ingest")
 def ingest_repo(request: RepoRequest):
-    result = clone_and_count_python_files(request.github_url)
-    if "error" in result:
-        # Include technical details if available
-        detail_msg = f"{result['error']} - {result.get('details', '')}" 
-        raise HTTPException(status_code=500, detail=detail_msg.strip(" - "))
-    return result
+    try:
+        result = clone_and_count_python_files(request.github_url)
+        if "error" in result:
+            # Include technical details if available
+            detail_msg = f"{result['error']} - {result.get('details', '')}" 
+            raise HTTPException(status_code=500, detail=detail_msg.strip(" - "))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/graph/{repo_name}")
 def get_repo_graph(repo_name: str):
-    repo_path = os.path.join("temp_repos", repo_name)
-    
-    if not os.path.exists(repo_path):
-        raise HTTPException(status_code=404, detail="Repository not found. Please ingest it first.")
+    try:
+        repo_path = os.path.join("temp_repos", repo_name)
         
-    # Build and return the graph as a JSON-serializable dictionary
-    graph_dict = build_repo_graph(repo_path)
-    return graph_dict
+        if not os.path.exists(repo_path):
+            raise HTTPException(status_code=404, detail="Repository not found. Please ingest it first.")
+            
+        # Build and return the graph as a JSON-serializable dictionary
+        graph_dict = build_repo_graph(repo_path)
+        return graph_dict
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/diagram/{repo_name}")
+def get_mermaid_diagram(repo_name: str, raw: bool = False):
+    from fastapi.responses import PlainTextResponse
+    try:
+        repo_path = os.path.join("temp_repos", repo_name)
+        
+        if not os.path.exists(repo_path):
+            raise HTTPException(status_code=404, detail="Repository not found. Please ingest it first.")
+            
+        graph_dict = build_repo_graph(repo_path)
+        mermaid_code = generate_mermaid_chart(graph_dict)
+        
+        if raw:
+            return PlainTextResponse(content=mermaid_code)
+            
+        return {"mermaid_code": mermaid_code}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/embed/{repo_name}")
 def embed_repo(repo_name: str):
-    repo_path = os.path.join("temp_repos", repo_name)
-    
-    if not os.path.exists(repo_path):
-        raise HTTPException(status_code=404, detail="Repository not found. Please ingest it first.")
+    try:
+        repo_path = os.path.join("temp_repos", repo_name)
         
-    total_chunks = 0
-    
-    # Scan the repo for Python files
-    for root, _, files in os.walk(repo_path):
-        for file in files:
-            if file.endswith('.py'):
-                full_path = os.path.join(root, file)
-                
-                # Process the file cleanly via the AST chunker
-                chunks = chunk_python_file(full_path)
-                
-                # Push the chunks to vector DB
-                if chunks:
-                    store_chunks_in_supabase(repo_name, chunks)
-                    total_chunks += len(chunks)
+        if not os.path.exists(repo_path):
+            raise HTTPException(status_code=404, detail="Repository not found. Please ingest it first.")
+            
+        total_chunks = 0
+        
+        # Scan the repo for Python files
+        for root, _, files in os.walk(repo_path):
+            for file in files:
+                if file.endswith('.py'):
+                    full_path = os.path.join(root, file)
                     
-    return {
-        "message": "Successfully embedded repository.",
-        "total_chunks_processed": total_chunks
-    }
+                    # Process the file cleanly via the AST chunker
+                    chunks = chunk_python_file(full_path)
+                    
+                    # Push the chunks to vector DB
+                    if chunks:
+                        store_chunks_in_supabase(repo_name, chunks)
+                        total_chunks += len(chunks)
+                        
+        return {
+            "message": "Successfully embedded repository.",
+            "total_chunks_processed": total_chunks
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/search")
 def search_repository(request: SearchRequest):
-    # Perform semantic pgvector search
-    results = search_code(request.query)
-    return {"results": results}
+    try:
+        # Perform semantic pgvector search
+        results = search_code(request.query)
+        return {"results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat")
 def chat_with_repo(request: ChatRequest):
