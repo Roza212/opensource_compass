@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 import os
@@ -10,7 +11,15 @@ from app.vector_store import store_chunks_in_supabase, search_code
 from app.chat_engine import generate_explanation
 from app.diagram_generator import generate_mermaid_chart
 
-app = FastAPI()
+app = FastAPI(title="OpenSource Compass API", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class RepoRequest(BaseModel):
     github_url: str

@@ -1,25 +1,36 @@
-opensource_compass_backend/
-├── app/                  # Main application package with core logic
-│   ├── __init__.py
-│   ├── chat_engine.py
-│   ├── chunker.py
-│   ├── git_service.py
-│   ├── graph_builder.py
-│   ├── parser.py
-│   ├── prompts.py
-│   └── vector_store.py
-├── tests/                # Testing scripts and assets
-│   ├── __init__.py
-│   ├── models.txt
-│   ├── test_chat.py
-│   ├── test_embed.py
-│   ├── test_gemini.py
-│   ├── test_openai.py
-│   └── test_supabase.py
-├── temp_repos/           # (Gitignored) Temporary storage for cloned repos
-├── .env                  # (Gitignored) Environment variables and secrets
-├── .gitignore            # Git ignore configuration
-├── main.py               # FastAPI entrypoint
-├── remember.txt          # History of codebase changes
-├── requirements.txt      # Python dependencies
-└── structure.txt         # This file (Current Codebase Structure)
+opensource_compass/
+├── .gitignore
+├── README.md
+├── remember.txt
+├── structure.txt
+│
+├── backend/
+│   ├── .env
+│   ├── main.py                  # FastAPI entry point (CORS enabled)
+│   ├── requirements.txt         # Python dependencies
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── git_service.py       # Phase 1: Clone & scan repos
+│   │   ├── parser.py            # AST parsing engine
+│   │   ├── graph_builder.py     # Phase 2: NetworkX dependency graph
+│   │   ├── chunker.py           # Phase 3: AST code chunking
+│   │   ├── vector_store.py      # Phase 3: Supabase pgvector embeddings
+│   │   ├── prompts.py           # Phase 4: LangChain prompt templates
+│   │   ├── chat_engine.py       # Phase 4: Gemini RAG chat pipeline
+│   │   └── diagram_generator.py # Phase 5: Mermaid.js chart generator
+│   ├── tests/
+│   │   ├── test_chat.py
+│   │   └── test_embed.py
+│   └── temp_repos/              # Cloned repositories (gitignored)
+│
+└── frontend/
+    ├── index.html
+    ├── package.json
+    ├── vite.config.js
+    └── src/
+        ├── main.jsx
+        ├── App.jsx              # State controller (Landing vs Dashboard)
+        ├── index.css            # Dark-mode design system
+        └── components/
+            ├── LandingView.jsx  # Glowing input + Analyze button
+            └── DashboardView.jsx # Split-screen chat + architecture canvas

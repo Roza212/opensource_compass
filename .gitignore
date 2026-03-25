@@ -1,10 +1,17 @@
-# Python environment
+# Python
 venv/
 __pycache__/
 *.pyc
-
-# Data
-temp_repos/
+backend/temp_repos/
 
 # Secrets
 .env
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/.env
+
+# IDE
+.vscode/
+.idea/

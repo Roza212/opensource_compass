@@ -71,3 +71,14 @@ History of Changes - Gemini Integration Fixes
 - What: Installed the `watchfiles` python package and appended it to dependencies.
 - Why: Uvicorn `--reload` was constantly crashing/reloading the server during `/ingest` because it detects thousands of new files being dumped into `temp_repos`. When we tried to use `--reload-exclude "temp_repos"`, Uvicorn returned a warning stating the flag only works if `watchfiles` is installed securely.
 - How: Added `watchfiles` to `requirements.txt` and generated the `pip install` command.
+
+13. MONOREPO RESTRUCTURE & REACT FRONTEND
+- What: Split the project into `backend/` and `frontend/` directories. Created a full React + Tailwind dark-mode UI.
+- Why: The user requested a professional monorepo structure before open-source showcase. The frontend provides the visual face for OpenSource Compass.
+- Components Built:
+  - `LandingView.jsx`: Glowing neon input + gradient Analyze button with loading spinner
+  - `DashboardView.jsx`: 35/65 split-screen with AI chat panel (user/AI bubbles, auto-scroll, typing indicator) and architecture canvas (fetches Mermaid diagram)
+  - `App.jsx`: State controller toggling between Landing and Dashboard views
+  - `index.css`: Full custom dark-mode design system with CSS variables, animations, and responsive breakpoints
+- Backend Changes: Added CORS middleware to `main.py` so React on port 5173 can reach FastAPI on port 8000. Added `title` and `version` to the FastAPI app instance.
+
