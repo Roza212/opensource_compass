@@ -82,3 +82,41 @@ History of Changes - Gemini Integration Fixes
   - `index.css`: Full custom dark-mode design system with CSS variables, animations, and responsive breakpoints
 - Backend Changes: Added CORS middleware to `main.py` so React on port 5173 can reach FastAPI on port 8000. Added `title` and `version` to the FastAPI app instance.
 
+14. BUG FIX: CHAT RETURNING WRONG REPO DATA
+- What: The `/chat` and `/search` endpoints were returning results from ALL repositories instead of just the one being analyzed.
+- Why: `search_code()` in `vector_store.py` performed a global pgvector similarity search without filtering by `repo_name`. When multiple repos were embedded, the AI would answer with context from the wrong codebase.
+- How: Added `repo_name` parameter to `search_code()`, passed it through from `chat_engine.py`, and implemented a dual strategy: tries Supabase RPC with `filter_repo_name` first, falls back to global search + client-side Python filtering if the RPC function doesn't support the parameter yet.
+
+15. MERMAID.JS VISUAL DIAGRAM RENDERING
+- What: Installed the `mermaid` npm package and integrated it into `DashboardView.jsx` so the architecture diagram renders as an interactive SVG flowchart instead of raw text.
+- Why: The canvas panel was dumping raw Mermaid syntax text (e.g., `graph TD; main_py --> chat_engine_py;`) instead of rendering a visual diagram.
+- How: 
+  - `npm install mermaid` in the frontend.
+  - Added `mermaid.initialize()` with a custom dark theme (purple nodes, blue edges, dark slate background).
+  - Created a `useEffect` hook that calls `mermaid.render(id, mermaidCode)` to generate SVG and injects it into a ref container.
+  - Falls back to raw text `<pre>` display if rendering fails.
+
+16. DIAGRAM VISIBILITY IMPROVEMENT
+- What: Rewrote `diagram_generator.py` to produce cleaner, more readable Mermaid charts.
+- Why: Node labels used full file paths (e.g., `backend/app/chat_engine.py`) making every node massive and the entire diagram compressed into unreadable tiny boxes.
+- How:
+  - Added `shorten_label()` function that extracts just the filename (e.g., `chat_engine.py`) for display labels while keeping full paths as unique node IDs.
+  - Changed layout direction from `graph TD` (top-down) to `graph LR` (left-to-right) for better horizontal use of the canvas.
+  - Added edge deduplication to prevent duplicate connections from cluttering the chart.
+
+17. CHAT SEARCH 2-STRATEGY REWRITE
+- What: Completely rewrote `vector_store.py` search_code() with a robust 2-strategy approach, and updated `chat_engine.py` to always pass repo context to the LLM.
+- Why: The Supabase RPC `match_code_chunks` function doesn't return a `repo_name` column in its results. Previous code tried to filter results by repo_name, but since the field didn't exist in the response, it returned unfiltered global results (wrong repo data) or empty results.
+- How:
+  - Strategy 1: RPC vector search — checks if results actually contain a `repo_name` field. If they do, filters by it. If they don't, falls through to Strategy 2 instead of returning wrong-repo data.
+  - Strategy 2 (fallback): Direct Supabase table query with `.eq("repo_name", repo_name)` — guarantees results from the correct repository.
+  - Updated `chat_engine.py` to pass `repo_name` into the LLM prompt template and provide a fallback message when no embeddings exist.
+
+18. FRONTEND-BACKEND FULL WIRING (handleIngest)
+- What: Updated `LandingView.jsx` with a `handleIngest` function that chains two API calls before transitioning to the dashboard.
+- Why: The original `handleSubmit` only called `/ingest`. The user needed `/embed` to also run automatically so the chat has context when the dashboard loads.
+- How: 
+  - Step 1: `POST /ingest` — clones the repo. Button shows "Cloning repository..."
+  - Step 2: `POST /embed/{repo_name}` — generates vector embeddings. Button shows "Generating embeddings..."
+  - On success: calls `onAnalyze(repoName)` to transition to the Dashboard view.
+  - Dynamic `statusMsg` state updates the button text at each phase so the user always knows what's happening.

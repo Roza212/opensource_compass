@@ -6,37 +6,55 @@ const API_BASE = 'http://127.0.0.1:8000';
 export default function LandingView({ onAnalyze }) {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = async () => {
+  const handleIngest = async () => {
     if (!url.trim()) return;
     setLoading(true);
     setError('');
 
     try {
-      const res = await fetch(`${API_BASE}/ingest`, {
+      // Step 1: Clone & scan the repository
+      setStatusMsg('Cloning repository...');
+      const ingestRes = await fetch(`${API_BASE}/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ github_url: url.trim() }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
+      if (!ingestRes.ok) {
+        const data = await ingestRes.json();
         throw new Error(data.detail || 'Failed to ingest repository.');
       }
 
-      const data = await res.json();
-      const repoName = data.repo_name || url.trim().split('/').pop().replace('.git', '');
+      const ingestData = await ingestRes.json();
+      const repoName = ingestData.repo_name || url.trim().split('/').pop().replace('.git', '');
+
+      // Step 2: Generate vector embeddings for semantic search
+      setStatusMsg('Generating embeddings... (this may take a minute)');
+      const embedRes = await fetch(`${API_BASE}/embed/${repoName}`, {
+        method: 'POST',
+      });
+
+      if (!embedRes.ok) {
+        const data = await embedRes.json();
+        throw new Error(data.detail || 'Failed to embed repository.');
+      }
+
+      // Both steps complete — transition to the Dashboard
+      setStatusMsg('');
       onAnalyze(repoName);
     } catch (err) {
       setError(err.message);
+      setStatusMsg('');
     } finally {
       setLoading(false);
     }
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter') handleSubmit();
+    if (e.key === 'Enter') handleIngest();
   };
 
   return (
@@ -59,13 +77,13 @@ export default function LandingView({ onAnalyze }) {
         />
         <button
           className="analyze-btn"
-          onClick={handleSubmit}
+          onClick={handleIngest}
           disabled={loading || !url.trim()}
         >
           {loading ? (
             <>
               <Loader2 size={20} className="spinner" />
-              Analyzing...
+              {statusMsg || 'Analyzing...'}
             </>
           ) : (
             'Analyze Repository'

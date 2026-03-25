@@ -1,7 +1,33 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, GitBranch, Loader2, Network } from 'lucide-react';
+import mermaid from 'mermaid';
 
 const API_BASE = 'http://127.0.0.1:8000';
+
+// Initialize mermaid with dark theme
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  themeVariables: {
+    primaryColor: '#8b5cf6',
+    primaryTextColor: '#f1f5f9',
+    primaryBorderColor: '#6d28d9',
+    lineColor: '#3b82f6',
+    secondaryColor: '#1e293b',
+    tertiaryColor: '#0f172a',
+    background: '#0f172a',
+    mainBkg: '#1e293b',
+    nodeBorder: '#6d28d9',
+    clusterBkg: '#1e293b',
+    titleColor: '#f1f5f9',
+    edgeLabelBackground: '#1e293b',
+  },
+  flowchart: {
+    htmlLabels: true,
+    curve: 'basis',
+  },
+  securityLevel: 'loose',
+});
 
 export default function DashboardView({ repoName }) {
   const [messages, setMessages] = useState([
@@ -11,7 +37,9 @@ export default function DashboardView({ repoName }) {
   const [sending, setSending] = useState(false);
   const [mermaidCode, setMermaidCode] = useState('');
   const [loadingDiagram, setLoadingDiagram] = useState(true);
+  const [diagramError, setDiagramError] = useState('');
   const messagesEndRef = useRef(null);
+  const mermaidRef = useRef(null);
 
   // Auto-scroll to the bottom of messages
   useEffect(() => {
@@ -29,12 +57,39 @@ export default function DashboardView({ repoName }) {
         }
       } catch (err) {
         console.error('Failed to fetch diagram:', err);
+        setDiagramError('Failed to fetch diagram.');
       } finally {
         setLoadingDiagram(false);
       }
     };
     fetchDiagram();
   }, [repoName]);
+
+  // Render mermaid diagram when code is available
+  useEffect(() => {
+    const renderDiagram = async () => {
+      if (!mermaidCode || !mermaidRef.current) return;
+
+      try {
+        // Clear previous content
+        mermaidRef.current.innerHTML = '';
+
+        // Create a unique ID for this render
+        const id = `mermaid-${Date.now()}`;
+
+        // Use mermaid.render to create SVG
+        const { svg } = await mermaid.render(id, mermaidCode);
+        mermaidRef.current.innerHTML = svg;
+      } catch (err) {
+        console.error('Mermaid render error:', err);
+        // Fallback: show raw text if rendering fails
+        if (mermaidRef.current) {
+          mermaidRef.current.innerHTML = `<pre style="padding:2rem;font-size:0.75rem;color:#94a3b8;white-space:pre-wrap;">${mermaidCode}</pre>`;
+        }
+      }
+    };
+    renderDiagram();
+  }, [mermaidCode]);
 
   const handleSend = async () => {
     if (!input.trim() || sending) return;
@@ -131,26 +186,21 @@ export default function DashboardView({ repoName }) {
               <p style={{ marginTop: '1rem' }}>Loading architecture diagram...</p>
             </div>
           ) : mermaidCode ? (
-            <pre style={{
-              padding: '2rem',
-              fontSize: '0.75rem',
-              color: '#94a3b8',
-              overflow: 'auto',
-              maxHeight: '100%',
-              width: '100%',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-all',
-              zIndex: 1,
-            }}>
-              {mermaidCode}
-            </pre>
+            <div
+              ref={mermaidRef}
+              style={{
+                width: '100%',
+                height: '100%',
+                overflow: 'auto',
+                padding: '1rem',
+                zIndex: 1,
+                position: 'relative',
+              }}
+            />
           ) : (
             <div className="canvas-placeholder">
               <Network size={64} className="icon" />
-              <p>Architecture diagram will render here.</p>
-              <p style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>
-                Mermaid.js integration coming soon.
-              </p>
+              <p>{diagramError || 'No architecture data available for this repository.'}</p>
             </div>
           )}
         </div>
@@ -158,3 +208,4 @@ export default function DashboardView({ repoName }) {
     </div>
   );
 }
+

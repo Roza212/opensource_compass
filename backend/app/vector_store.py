@@ -42,17 +42,46 @@ def store_chunks_in_supabase(repo_name: str, chunks: list):
                 "embedding": embedding
             }).execute()
 
-def search_code(query: str, match_count: int = 3) -> list:
+def search_code(query: str, match_count: int = 5, repo_name: str = None) -> list:
     """
     Search for relevant code snippets using vector similarity search via Supabase RPC.
+    If repo_name is provided, tries RPC filtering first, then falls back to table query.
     """
-    # Embed the natural language search query
     query_embedding = get_model().encode(query).tolist()
     
-    # Call the Remote Procedure Call (RPC) pgvector function in Supabase
-    response = supabase.rpc("match_code_chunks", {
-        "query_embedding": query_embedding,
-        "match_count": match_count
-    }).execute()
+    # Strategy 1: Try RPC search (fast pgvector similarity)
+    try:
+        rpc_params = {
+            "query_embedding": query_embedding,
+            "match_count": match_count * 3  # fetch extra for filtering
+        }
+        response = supabase.rpc("match_code_chunks", rpc_params).execute()
+        results = response.data or []
+        
+        if repo_name and results:
+            # Check if results have repo_name field for filtering
+            if "repo_name" in results[0]:
+                filtered = [r for r in results if r.get("repo_name") == repo_name]
+                if filtered:
+                    return filtered[:match_count]
+            # RPC can't filter by repo — fall through to Strategy 2
+        elif results:
+            return results[:match_count]
+    except Exception as e:
+        print(f"⚠️ RPC search failed: {e}")
     
-    return response.data
+    # Strategy 2: Direct table query filtered by repo_name
+    if repo_name:
+        try:
+            response = (
+                supabase.table("code_chunks")
+                .select("repo_name, file_name, chunk_text")
+                .eq("repo_name", repo_name)
+                .limit(match_count)
+                .execute()
+            )
+            return response.data or []
+        except Exception as e:
+            print(f"⚠️ Table query failed: {e}")
+    
+    return []
