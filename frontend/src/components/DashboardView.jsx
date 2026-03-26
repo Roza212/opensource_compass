@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, GitBranch, Loader2, Network } from 'lucide-react';
 import mermaid from 'mermaid';
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 // Initialize mermaid with dark theme
 mermaid.initialize({
