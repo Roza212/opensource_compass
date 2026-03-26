@@ -4,12 +4,41 @@ from pydantic import BaseModel
 import uvicorn
 import os
 
-from app.git_service import clone_and_count_python_files
-from app.graph_builder import build_repo_graph
-from app.chunker import chunk_python_file
-from app.vector_store import store_chunks_in_supabase, search_code
-from app.chat_engine import generate_explanation
-from app.diagram_generator import generate_mermaid_chart
+try:
+    from app.git_service import clone_and_count_python_files
+    print("✅ git_service loaded")
+except Exception as e:
+    print(f"❌ IMPORT ERROR - git_service: {e}"); raise
+
+try:
+    from app.graph_builder import build_repo_graph
+    print("✅ graph_builder loaded")
+except Exception as e:
+    print(f"❌ IMPORT ERROR - graph_builder: {e}"); raise
+
+try:
+    from app.chunker import chunk_python_file
+    print("✅ chunker loaded")
+except Exception as e:
+    print(f"❌ IMPORT ERROR - chunker: {e}"); raise
+
+try:
+    from app.vector_store import store_chunks_in_supabase, search_code
+    print("✅ vector_store loaded")
+except Exception as e:
+    print(f"❌ IMPORT ERROR - vector_store: {e}"); raise
+
+try:
+    from app.chat_engine import generate_explanation
+    print("✅ chat_engine loaded")
+except Exception as e:
+    print(f"❌ IMPORT ERROR - chat_engine: {e}"); raise
+
+try:
+    from app.diagram_generator import generate_mermaid_chart
+    print("✅ diagram_generator loaded")
+except Exception as e:
+    print(f"❌ IMPORT ERROR - diagram_generator: {e}"); raise
 
 app = FastAPI(title="OpenSource Compass API", version="1.0.0")
 
