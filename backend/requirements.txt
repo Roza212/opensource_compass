@@ -1,9 +1,9 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
 GitPython
-tree-sitter>=0.22.0
-tree-sitter-python>=0.23.0
+tree-sitter==0.22.3
+tree-sitter-python==0.23.2
 networkx
 supabase
 sentence-transformers
@@ -13,4 +13,3 @@ langchain-google-genai
 langchain-community
 google-genai
 watchfiles
-
