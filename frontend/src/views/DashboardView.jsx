@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, GitBranch, Loader2, Network } from 'lucide-react';
+import { MessageSquare, Send, GitBranch, Loader2, Network, Home } from 'lucide-react';
 import mermaid from 'mermaid';
 import { fetchDiagram, sendChatMessage } from '../api/client';
 
@@ -28,7 +28,7 @@ mermaid.initialize({
   securityLevel: 'loose',
 });
 
-export default function DashboardView({ repoName }) {
+export default function DashboardView({ repoName, onReset }) {
   const [messages, setMessages] = useState([
     { role: 'ai', text: `Welcome! I've analyzed **${repoName}**. Ask me anything about its architecture, code patterns, or how specific modules work.` },
   ]);
@@ -148,15 +148,33 @@ export default function DashboardView({ repoName }) {
 
       {/* Right Panel: The Canvas */}
       <div className="canvas-panel">
-        <div className="canvas-header">
-          <h2>
-            <Network size={20} className="icon" />
-            System Architecture
-          </h2>
-          <span className="repo-badge">
-            <GitBranch size={14} />
-            {repoName}
-          </span>
+        <div className="canvas-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h2>
+              <Network size={20} className="icon" />
+              System Architecture
+            </h2>
+            <span className="repo-badge">
+              <GitBranch size={14} />
+              {repoName}
+            </span>
+          </div>
+          <button 
+            onClick={onReset}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              padding: '0.4rem 0.8rem', borderRadius: '6px',
+              backgroundColor: '#1e293b', color: '#f1f5f9',
+              border: '1px solid #334155', cursor: 'pointer',
+              fontSize: '0.875rem', transition: 'background-color 0.2s',
+              fontWeight: 500
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#334155'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#1e293b'}
+          >
+            <Home size={16} />
+            New Repository
+          </button>
         </div>
 
         <div className="canvas-body">

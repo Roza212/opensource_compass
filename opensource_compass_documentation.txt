@@ -1,29 +1,69 @@
 ================================================================================
-                    OPENSOURCE COMPASS - PROJECT DOCUMENTATION
+                    OPENSOURCE COMPASS - MASTER DOCUMENTATION
 ================================================================================
 
 1. EXECUTIVE SUMMARY
 --------------------------------------------------------------------------------
-OpenSource Compass is a full-stack, AI-powered mentorship application designed to help developers explore, understand, and learn from open-source Python codebases. By providing a GitHub URL, the application autonomously clones the repository, parses the codebase using Abstract Syntax Trees (AST), generates a visual dependency flowchart, and stores semantic code embeddings in a vector database. Users can then interact with an AI Mentor (powered by Google Gemini) that possesses full contextual knowledge of the ingested codebase.
+OpenSource Compass is an advanced, enterprise-grade AI mentorship application designed to help developers seamlessly explore, understand, and learn from open-source Python codebases. By providing a GitHub URL, the application autonomously clones the repository, parses the entire codebase using Abstract Syntax Trees (AST), generates a dynamic visual dependency flowchart, and stores semantic code embeddings in a vector database. Users then interact with an AI Mentor (powered by Google Gemini 3 Flash Preview) that possesses full contextual knowledge of the ingested codebase using Retrieval-Augmented Generation (RAG).
 
-2. TECHNOLOGY STACK
+2. THE PIPELINE: END-TO-END DATA FLOW
 --------------------------------------------------------------------------------
-- Frontend: React, Vite, Tailwind CSS, Mermaid.js, Lucide Icons
-- Backend: FastAPI, Uvicorn (async server)
-- AI & LLM: Google Gemini 3 Flash Preview, SentenceTransformers (all-MiniLM-L6-v2)
-- Orchestration: LangChain Expression Language (LCEL)
-- Database: Supabase PostgreSQL with pgvector extension
-- Code Parsing: tree-sitter, NetworkX
+The system operates on a highly optimized, dual-phase pipeline: The "Ingestion Phase" and the "Interactive Phase".
 
-3. ARCHITECTURAL WORKFLOW
+A. THE INGESTION PHASE (Triggered by the Landing Page)
+1. User Input: The user pastes a GitHub URL into the React frontend and clicks "Analyze". An estimated logarithmic progress bar begins filling the button.
+2. Shallow Clone (/ingest): The FastAPI backend receives the URL and uses `GitPython` to perform a "shallow clone" (depth=1). This downloads only the latest snapshot of the code into a hidden local `.temp_repos/` directory, preventing massive history downloads and taking only seconds.
+3. AST Parsing & Chunking (/embed): 
+   - The backend recursively crawls `.temp_repos/` for all `.py` files.
+   - It feeds each file into `tree-sitter` (an Abstract Syntax Tree parser) which intelligently slices the code into logical semantic "chunks" (e.g., keeping entire functions and classes intact rather than cutting blindly by line numbers).
+4. Vector Embedding:
+   - CPU Vectorized Batching: The backend extracts all chunk strings for a given file and passes them as a batch list to the `SentenceTransformers` AI model (`all-MiniLM-L6-v2`). The model utilizes parallel CPU processing to instantly convert the text strings into 384-dimensional mathematical arrays (vector embeddings).
+   - Network Batching: The backend packages all the chunks and their vectors into a single JSON payload and makes exactly one HTTP POST request to the Supabase Postgres Database, inserting the batch into the `code_chunks` table.
+5. Transition: The frontend progress bar snaps to 100%, and the user is transitioned to the Dashboard View.
+
+B. THE INTERACTIVE PHASE (The Dashboard)
+1. Graph Visualization (/diagram):
+   - Upon loading, the Dashboard requests the architecture map.
+   - The backend's `graph_builder.py` uses AST to extract all internal `import` statements across the repository.
+   - `NetworkX` computes a directed dependency graph.
+   - `diagram_generator.py` sanitizes this graph and translates it into a strict `Mermaid.js` syntax string (Graph LR), removing massive file paths to keep node labels clean.
+   - The React frontend receives the string and natively renders it as an interactive, draggable SVG flowchart on the right-side canvas.
+2. AI Mentor Chat (/chat):
+   - The user types a question (e.g., "How does the authentication work?") into the chat panel.
+   - The backend converts the question into a vector embedding using the same `SentenceTransformer` model.
+   - Dual-Strategy Vector Search: The system queries the Supabase `pgvector` database to find code chunks mathematically similar to the question. It first attempts an RPC similarity search, then falls back to a direct table query filtered by `repo_name` to guarantee the AI only sees code from the exact repository being analyzed.
+   - LangChain LCEL RAG: The retrieved code chunks are injected into a LangChain system prompt template as "context", along with the user's question.
+   - Generation: The prompt is sent to `Google Gemini 3 Flash Preview` which reads the raw code context and streams back a highly accurate, codebase-specific answer.
+
+3. TECHNOLOGY STACK & CORE PROCESSES
 --------------------------------------------------------------------------------
-1. Ingestion Phase: User pastes a GitHub URL in the React frontend.
-2. Cloning: Backend performs a shallow clone (depth=1) of the repository into a hidden local `.temp_repos` directory.
-3. Embedding Phase: Backend scans for `.py` files. It chunks the code at the function/class level using AST. These chunks are embedded locally using SentenceTransformers and pushed to Supabase.
-4. Diagram Generation: Backend maps internal Python imports via NetworkX and translates them into a valid Mermaid.js flowchart string.
-5. Interactive Chat Phase: Frontend requests the Mermaid chart and displays it. User asks questions; backend performs semantic vector search in Supabase (filtered by repository) and injects the retrieved code context into the Gemini prompt via LangChain.
+- FRONTEND:
+  - React.js & Vite (Lightning-fast HMR and bundling)
+  - CSS3 (Vanilla CSS for a bespoke, dynamic dark-mode styling and glowing animations)
+  - Mermaid.js (For dynamic, client-side SVG flowchart rendering)
+  - Lucide React (For crisp SVG iconography)
+  - api/client.js (Decoupled fetch API layer)
 
-4. DETAILED DIRECTORY STRUCTURE
+- BACKEND CORE:
+  - FastAPI (High-performance asynchronous Python web framework)
+  - Uvicorn (ASGI web server using `watchfiles` to ignore `.temp_repos/` and prevent crash-loops)
+  - Pydantic (For strict data shape validation in `models/schemas.py`)
+
+- PARSING & DATA PROCESSING:
+  - GitPython (For autonomous repository cloning)
+  - tree-sitter & tree-sitter-python (For Abstract Syntax Tree parsing and chunking)
+  - NetworkX (For building and traversing directed dependency graphs)
+
+- AI & MACHINE LEARNING:
+  - Embedding Model: `sentence-transformers/all-MiniLM-L6-v2` (Running locally in memory for blazing fast 384-dimensional dense vector generation). The model is "lazy-loaded" to prevent slow Uvicorn startup times.
+  - LLM: `Google Gemini 3 Flash Preview` (Google's latest lightweight, multimodal model used for rapid code explanation and RAG generation).
+  - Orchestration: `LangChain` Expression Language (LCEL) used to seamlessly chain prompts, retrievers, and LLMs.
+
+- DATABASE:
+  - Supabase PostgreSQL
+  - pgvector extension (For computing Cosine Similarity between the user's question vector and the code chunk vectors in milliseconds).
+
+4. DETAILED LAYERED DIRECTORY STRUCTURE
 --------------------------------------------------------------------------------
 opensource_compass/
 ├── backend/
@@ -31,70 +71,47 @@ opensource_compass/
 │   ├── requirements.txt         # Python dependencies
 │   ├── .env                     # API keys (Supabase, Google)
 │   ├── app/                     
-│   │   ├── api/                 # API Routers
-│   │   │   ├── chat.py
-│   │   │   ├── diagram.py
-│   │   │   └── ingest.py
+│   │   ├── api/                 # API Routers (Separation of HTTP routes)
+│   │   │   ├── chat.py          # /chat endpoints
+│   │   │   ├── diagram.py       # /graph and /diagram endpoints
+│   │   │   └── ingest.py        # /ingest and /embed endpoints
 │   │   ├── core/                # Core Configs
-│   │   │   └── prompts.py
+│   │   │   └── prompts.py       # LangChain system prompt templates
 │   │   ├── models/              # Pydantic Schemas
-│   │   │   └── schemas.py
-│   │   ├── services/            # Business Logic
-│   │   │   ├── chat_engine.py
-│   │   │   ├── git_service.py
-│   │   │   └── vector_store.py
-│   │   └── utils/               # Helpers
-│   │       ├── chunker.py
-│   │       ├── diagram_generator.py
-│   │       ├── errors.py
-│   │       ├── graph_builder.py
-│   │       └── parser.py
-│   └── tests/                   # Isolated test suite
-│       ├── test_chat.py
-│       └── test_embed.py
+│   │   │   └── schemas.py       # RepoRequest, ChatRequest, etc.
+│   │   ├── services/            # Stateful Business Logic
+│   │   │   ├── chat_engine.py   # Langchain + Gemini execution
+│   │   │   ├── git_service.py   # Cloning and file system management
+│   │   │   └── vector_store.py  # Supabase client and sentence-transformers
+│   │   └── utils/               # Pure Stateless Helpers
+│   │       ├── chunker.py       # AST slicing logic
+│   │       ├── diagram_generator.py # Mermaid.js string formatting
+│   │       ├── errors.py        # sanitize_error middleware
+│   │       ├── graph_builder.py # NetworkX logic
+│   │       └── parser.py        # AST import extraction
+│   ├── tests/                   # Isolated test suite (pytest)
+│   │   ├── test_chat.py
+│   │   └── test_embed.py
+│   └── .temp_repos/             # Hidden active repository storage (Gitignored)
 │
 └── frontend/
-    ├── index.html               # Main entry point, loads custom SVG favicon
-    ├── package.json             # NPM dependencies (lucide-react, mermaid)
-    ├── vite.config.js
+    ├── index.html               # Main DOM entry point
+    ├── package.json             # NPM dependencies
+    ├── vite.config.js           # Vite bundler config
     ├── public/
     │   └── favicon.svg          # Custom scalable transparent compass logo
     └── src/
         ├── App.jsx              # High-level state controller
         ├── index.css            # Comprehensive dark-mode design system
-        ├── main.jsx
-        ├── api/                 # Extracted API client
-        │   └── client.js
-        └── views/               # UI Page Views
-            ├── DashboardView.jsx# Dual-panel interface (Mermaid diagram + Chat UI)
-            └── LandingView.jsx  # Initial input screen, orchestrates ingest/embed API calls
+        ├── main.jsx             # React root renderer
+        ├── api/                 # Centralized Networking
+        │   └── client.js        # Native fetch abstractions
+        └── views/               # Page-Level UI Components
+            ├── DashboardView.jsx# Dual-panel interface (Canvas + Chat)
+            └── LandingView.jsx  # Initial input screen with progress bar
 
-
-5. RECENT ARCHITECTURAL FIXES & STABILITY IMPROVEMENTS
+5. STABILITY & RESILIENCE MECHANISMS
 --------------------------------------------------------------------------------
-The application has recently undergone massive architectural hardening to prevent edge-case failures:
-
-A. Zero-Crash Hot Reloading: 
-Uvicorn's `watchfiles` utility on Windows historically crashed the server when detecting thousands of files being cloned. By renaming the temp directory to `.temp_repos`, the directory is natively treated as hidden and ignored, ensuring zero downtime during massive ingestion.
-
-B. Shallow Clone Optimization:
-Large mono-repos (like 'python-mini-projects') caused the frontend to timeout (5+ minutes) because `git` attempted to download years of commit history. By appending `depth=1` to the GitPython clone mechanism, repositories now download only the latest snapshot, dropping ingest times to mere seconds.
-
-C. Bulletproof Mermaid.js Rendering:
-Repositories with no imports (or zero Python files) previously generated invalid graph strings (e.g., `graph LR;`) which fatally crashed the Mermaid.js rendering engine on the frontend. The `diagram_generator.py` was refactored to explicitly map and declare all file nodes *before* drawing edges. It also includes a graceful fallback node for non-Python repositories to prevent blank canvases.
-
-D. UI Error Sanitization:
-When external databases (like Supabase) went offline, the Python SDK returned hundreds of lines of raw Cloudflare HTML code as the exception string. The frontend naively rendered this HTML, destroying the UI layout. A `sanitize_error` middleware was added to `main.py` that intercepts massive `521 Web server is down` and DNS failures, converting them into single-sentence, user-friendly warnings while truncating all other generic exceptions to 300 characters.
-
-E. SVG Favicon Enhancement:
-To replace standard square-boxed AI-generated images, a pure XML-based scalable Vector Graphic (`favicon.svg`) was hand-coded. It perfectly mimics the Lucide React compass icon colored in a glowing neon-purple (`#6366f1`), providing a pristine transparent background.
-
-6. FASTAPI ENDPOINTS SUMMARY
---------------------------------------------------------------------------------
-- GET  /health: Simple healthcheck.
-- POST /ingest: Initiates git shallow clone and counts python files.
-- GET  /graph/{repo}: Returns raw NetworkX JSON dictionary.
-- GET  /diagram/{repo}?raw=true: Returns formatted Mermaid string.
-- POST /embed/{repo}: Triggers the AST chunker and pgvector database push.
-- POST /search: Semantic pgvector search query.
-- POST /chat: Master LCEL pipeline endpoint combining search and LLM generation.
+- Error Sanitization: The `utils/errors.py` middleware wraps FastAPI endpoints. If an external service like Supabase goes down, it catches massive raw HTML traceback errors (like Cloudflare 521s) and converts them into single-sentence, user-friendly UI warnings.
+- UI Progress States: The frontend utilizes robust `disabled` states, loading spinners, and an internal logarithmic `setInterval` progress bar. This ensures users cannot spam endpoints and always have visual feedback during heavy background tasks.
+- Fallback Nodes: If a user ingests a repository that contains zero python files (or has no inter-file dependencies), the backend `diagram_generator` automatically returns a fallback node `[No Python Architecture Detected]` to prevent the Mermaid.js parser from fatally crashing the React UI.

@@ -26,21 +26,26 @@ def store_chunks_in_supabase(repo_name: str, chunks: list):
     """
     Generate embeddings for extracted AST code chunks and insert them into the database.
     """
-    for chunk in chunks:
-        file_name = chunk.get("file_name", "")
-        chunk_text = chunk.get("chunk_text", "")
+    valid_chunks = [c for c in chunks if c.get("chunk_text", "").strip()]
+    if not valid_chunks:
+        return
         
-        if chunk_text.strip():
-            # Generate the vector embedding
-            embedding = get_model().encode(chunk_text).tolist()
-            
-            # Insert into Supabase 'code_chunks' table
-            supabase.table("code_chunks").insert({
-                "repo_name": repo_name,
-                "file_name": file_name,
-                "chunk_text": chunk_text,
-                "embedding": embedding
-            }).execute()
+    # Batch encode ALL chunks for this file at once (Massive CPU speedup)
+    texts = [c["chunk_text"] for c in valid_chunks]
+    embeddings = get_model().encode(texts).tolist()
+    
+    rows_to_insert = []
+    for chunk, embedding in zip(valid_chunks, embeddings):
+        rows_to_insert.append({
+            "repo_name": repo_name,
+            "file_name": chunk.get("file_name", ""),
+            "chunk_text": chunk["chunk_text"],
+            "embedding": embedding
+        })
+        
+    # Batch insert into Supabase (Massive Network speedup)
+    if rows_to_insert:
+        supabase.table("code_chunks").insert(rows_to_insert).execute()
 
 def search_code(query: str, match_count: int = 5, repo_name: str = None) -> list:
     """

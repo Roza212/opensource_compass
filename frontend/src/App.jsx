@@ -7,7 +7,7 @@ function App() {
   const [repoName, setRepoName] = useState(null);
 
   return repoName ? (
-    <DashboardView repoName={repoName} />
+    <DashboardView repoName={repoName} onReset={() => setRepoName(null)} />
   ) : (
     <LandingView onAnalyze={(name) => setRepoName(name)} />
   );
