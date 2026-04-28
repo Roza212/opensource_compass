@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Loader2, Compass } from 'lucide-react';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+import { ingestRepo, embedRepo } from '../api/client';
 
 export default function LandingView({ onAnalyze }) {
   const [url, setUrl] = useState('');
@@ -15,34 +14,13 @@ export default function LandingView({ onAnalyze }) {
     setError('');
 
     try {
-      // Step 1: Clone & scan the repository
       setStatusMsg('Cloning repository...');
-      const ingestRes = await fetch(`${API_BASE}/ingest`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ github_url: url.trim() }),
-      });
-
-      if (!ingestRes.ok) {
-        const data = await ingestRes.json();
-        throw new Error(data.detail || 'Failed to ingest repository.');
-      }
-
-      const ingestData = await ingestRes.json();
+      const ingestData = await ingestRepo(url);
       const repoName = ingestData.repo_name || url.trim().split('/').pop().replace('.git', '');
 
-      // Step 2: Generate vector embeddings for semantic search
       setStatusMsg('Generating embeddings... (this may take a minute)');
-      const embedRes = await fetch(`${API_BASE}/embed/${repoName}`, {
-        method: 'POST',
-      });
+      await embedRepo(repoName);
 
-      if (!embedRes.ok) {
-        const data = await embedRes.json();
-        throw new Error(data.detail || 'Failed to embed repository.');
-      }
-
-      // Both steps complete — transition to the Dashboard
       setStatusMsg('');
       onAnalyze(repoName);
     } catch (err) {

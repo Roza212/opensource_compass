@@ -120,3 +120,36 @@ History of Changes - Gemini Integration Fixes
   - Step 2: `POST /embed/{repo_name}` — generates vector embeddings. Button shows "Generating embeddings..."
   - On success: calls `onAnalyze(repoName)` to transition to the Dashboard view.
   - Dynamic `statusMsg` state updates the button text at each phase so the user always knows what's happening.
+
+
+19. UVICORN RELOAD CRASH FIX
+- What: Renamed temp_repos to .temp_repos across the backend.
+- Why: Uvicorn\'s watchfiles on Windows ignored the --reload-exclude flag, constantly rebooting the server during the clone process and causing 500 Internal Server Errors.
+- How: Hidden directories (starting with a dot) are natively ignored by watchfiles. Updated git_service.py and all routes in main.py to use .temp_repos.
+
+20. SHALLOW CLONE OPTIMIZATION
+- What: Added depth=1 to the GitPython clone command.
+- Why: Large repositories (like python-mini-projects) took 5+ minutes to clone because it downloaded the entire commit history, causing frontend HTTP requests to time out.
+- How: Repo.clone_from(github_url, target_dir, depth=1) massively reduces download times to seconds.
+
+21. MERMAID DIAGRAM RENDER FIXES
+- What: Fixed diagram_generator.py to prevent blank canvases or raw-text crashes.
+- Why: Repositories with no imports (or non-Python repos) produced empty graphs (graph LR;), crashing the mermaid.js parser. Isolated Python files also failed to show up.
+- How: Refactored generator to explicitly declare all nodes before edges. Added a fallback node if no .py files are found, ensuring the UI always renders a valid SVG.
+
+22. UI ERROR SANITIZATION
+- What: Added sanitize_error wrapper around all FastAPI exceptions in main.py.
+- Why: When Supabase went down or the URL was invalid, Python\'s Supabase SDK threw an exception containing a massive raw Cloudflare HTML page. The frontend rendered this raw HTML, ruining the UI layout.
+- How: sanitize_error intercepts 521 Cloudflare and getaddrinfo errors, replacing them with a single clean sentence. It also limits all other unexpected errors to 300 characters.
+
+23. ENTERPRISE ARCHITECTURAL REFACTORING
+- What: Dismantled the monolithic main.py and flat directories into a layered enterprise architecture.
+- Why: To ensure long-term scalability and decouple routing, logic, and data schemas.
+- How: 
+   - Backend: Split main.py into API routers (api/ingest.py, api/chat.py). Moved business logic to services/, stateless utilities to utils/, schemas to models/.
+   - Frontend: Extracted all raw fetch() calls out of React components into a dedicated api/client.js file. Promoted components into a views/ directory.
+
+24. END-TO-END ARCHITECTURE VERIFICATION
+- What: Performed a full system verification after the enterprise refactoring.
+- Why: To guarantee no internal imports or data flows were broken during the transition.
+- How: Executed pytest on test_chat.py to verify internal routing, and ran Invoke-RestMethod against the FastAPI routes to confirm uvicorn successfully mounted the new /api/ routers without 404s.

@@ -28,10 +28,25 @@ def generate_mermaid_chart(graph_data: dict) -> str:
     """
     mermaid_str = 'graph LR;\n'
     
+    nodes = graph_data.get('nodes', [])
+    
+    if not nodes:
+        mermaid_str += '    empty["No Python (.py) files found in this repository to analyze."];\n'
+        return mermaid_str
+
+    # 1. Declare all nodes to ensure isolated files are visible and syntax is valid even with no edges
+    for node in nodes:
+        node_id = str(node.get('id', ''))
+        if not node_id:
+            continue
+        safe_id = sanitize_mermaid_id(node_id)
+        label = shorten_label(node_id)
+        mermaid_str += f'    {safe_id}["{label}"];\n'
+    
     # Track unique connections to avoid duplicates
     seen = set()
     
-    # NetworkX node_link_data stores connections in a 'links' list
+    # 2. NetworkX node_link_data stores connections in a 'links' list
     for link in graph_data.get('links', []):
         source = str(link.get('source', ''))
         target = str(link.get('target', ''))
@@ -39,7 +54,7 @@ def generate_mermaid_chart(graph_data: dict) -> str:
         if not source or not target:
             continue
         
-        # Create safe Node IDs (must be unique per full path)
+        # Create safe Node IDs
         source_id = sanitize_mermaid_id(source)
         target_id = sanitize_mermaid_id(target)
         
@@ -49,11 +64,7 @@ def generate_mermaid_chart(graph_data: dict) -> str:
             continue
         seen.add(connection_key)
         
-        # Use short labels for display
-        source_label = shorten_label(source)
-        target_label = shorten_label(target)
-        
-        # Append connection using NodeID["Display Name"] syntax
-        mermaid_str += f'    {source_id}["{source_label}"] --> {target_id}["{target_label}"];\n'
+        # Append connection (nodes are already labelled above)
+        mermaid_str += f'    {source_id} --> {target_id};\n'
         
     return mermaid_str

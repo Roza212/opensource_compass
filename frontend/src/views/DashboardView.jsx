@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, GitBranch, Loader2, Network } from 'lucide-react';
 import mermaid from 'mermaid';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+import { fetchDiagram, sendChatMessage } from '../api/client';
 
 // Initialize mermaid with dark theme
 mermaid.initialize({
@@ -48,13 +47,10 @@ export default function DashboardView({ repoName }) {
 
   // Fetch Mermaid diagram on mount
   useEffect(() => {
-    const fetchDiagram = async () => {
+    const getDiagram = async () => {
       try {
-        const res = await fetch(`${API_BASE}/diagram/${repoName}?raw=true`);
-        if (res.ok) {
-          const text = await res.text();
-          setMermaidCode(text);
-        }
+        const text = await fetchDiagram(repoName);
+        setMermaidCode(text);
       } catch (err) {
         console.error('Failed to fetch diagram:', err);
         setDiagramError('Failed to fetch diagram.');
@@ -62,7 +58,7 @@ export default function DashboardView({ repoName }) {
         setLoadingDiagram(false);
       }
     };
-    fetchDiagram();
+    getDiagram();
   }, [repoName]);
 
   // Render mermaid diagram when code is available
@@ -71,18 +67,12 @@ export default function DashboardView({ repoName }) {
       if (!mermaidCode || !mermaidRef.current) return;
 
       try {
-        // Clear previous content
         mermaidRef.current.innerHTML = '';
-
-        // Create a unique ID for this render
         const id = `mermaid-${Date.now()}`;
-
-        // Use mermaid.render to create SVG
         const { svg } = await mermaid.render(id, mermaidCode);
         mermaidRef.current.innerHTML = svg;
       } catch (err) {
         console.error('Mermaid render error:', err);
-        // Fallback: show raw text if rendering fails
         if (mermaidRef.current) {
           mermaidRef.current.innerHTML = `<pre style="padding:2rem;font-size:0.75rem;color:#94a3b8;white-space:pre-wrap;">${mermaidCode}</pre>`;
         }
@@ -100,20 +90,10 @@ export default function DashboardView({ repoName }) {
     setSending(true);
 
     try {
-      const res = await fetch(`${API_BASE}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repo_name: repoName, question: userMsg }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setMessages((prev) => [...prev, { role: 'ai', text: data.answer }]);
-      } else {
-        setMessages((prev) => [...prev, { role: 'ai', text: `⚠️ Error: ${data.detail}` }]);
-      }
+      const data = await sendChatMessage(repoName, userMsg);
+      setMessages((prev) => [...prev, { role: 'ai', text: data.answer }]);
     } catch (err) {
-      setMessages((prev) => [...prev, { role: 'ai', text: `⚠️ Network error: ${err.message}` }]);
+      setMessages((prev) => [...prev, { role: 'ai', text: `⚠️ Error: ${err.message}` }]);
     } finally {
       setSending(false);
     }
@@ -208,4 +188,3 @@ export default function DashboardView({ repoName }) {
     </div>
   );
 }
-

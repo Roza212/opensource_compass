@@ -3,8 +3,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-from app.vector_store import search_code
-from app.prompts import SYSTEM_PROMPT, format_context
+from app.services.vector_store import search_code
+from app.core.prompts import SYSTEM_PROMPT, format_context
 
 def generate_explanation(repo_name: str, user_question: str) -> str:
     """

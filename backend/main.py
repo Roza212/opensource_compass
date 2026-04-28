@@ -1,44 +1,11 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import uvicorn
-import os
 
-try:
-    from app.git_service import clone_and_count_python_files
-    print("✅ git_service loaded")
-except Exception as e:
-    print(f"❌ IMPORT ERROR - git_service: {e}"); raise
-
-try:
-    from app.graph_builder import build_repo_graph
-    print("✅ graph_builder loaded")
-except Exception as e:
-    print(f"❌ IMPORT ERROR - graph_builder: {e}"); raise
-
-try:
-    from app.chunker import chunk_python_file
-    print("✅ chunker loaded")
-except Exception as e:
-    print(f"❌ IMPORT ERROR - chunker: {e}"); raise
-
-try:
-    from app.vector_store import store_chunks_in_supabase, search_code
-    print("✅ vector_store loaded")
-except Exception as e:
-    print(f"❌ IMPORT ERROR - vector_store: {e}"); raise
-
-try:
-    from app.chat_engine import generate_explanation
-    print("✅ chat_engine loaded")
-except Exception as e:
-    print(f"❌ IMPORT ERROR - chat_engine: {e}"); raise
-
-try:
-    from app.diagram_generator import generate_mermaid_chart
-    print("✅ diagram_generator loaded")
-except Exception as e:
-    print(f"❌ IMPORT ERROR - diagram_generator: {e}"); raise
+# Import Routers
+from app.api.ingest import router as ingest_router
+from app.api.diagram import router as diagram_router
+from app.api.chat import router as chat_router
 
 app = FastAPI(title="OpenSource Compass API", version="1.0.0")
 
@@ -50,128 +17,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class RepoRequest(BaseModel):
-    github_url: str
-
-class SearchRequest(BaseModel):
-    query: str
-
-class ChatRequest(BaseModel):
-    repo_name: str
-    question: str
+@app.get("/")
+async def root():
+    return {"message": "Welcome to OpenSource Compass API"}
 
 @app.get("/health")
 async def health_check():
     return {"status": "System is running"}
 
-@app.post("/ingest")
-def ingest_repo(request: RepoRequest):
-    try:
-        result = clone_and_count_python_files(request.github_url)
-        if "error" in result:
-            # Include technical details if available
-            detail_msg = f"{result['error']} - {result.get('details', '')}" 
-            raise HTTPException(status_code=500, detail=detail_msg.strip(" - "))
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/graph/{repo_name}")
-def get_repo_graph(repo_name: str):
-    try:
-        repo_path = os.path.join("temp_repos", repo_name)
-        
-        if not os.path.exists(repo_path):
-            raise HTTPException(status_code=404, detail="Repository not found. Please ingest it first.")
-            
-        # Build and return the graph as a JSON-serializable dictionary
-        graph_dict = build_repo_graph(repo_path)
-        return graph_dict
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/diagram/{repo_name}")
-def get_mermaid_diagram(repo_name: str, raw: bool = False):
-    from fastapi.responses import PlainTextResponse
-    try:
-        repo_path = os.path.join("temp_repos", repo_name)
-        
-        if not os.path.exists(repo_path):
-            raise HTTPException(status_code=404, detail="Repository not found. Please ingest it first.")
-            
-        graph_dict = build_repo_graph(repo_path)
-        mermaid_code = generate_mermaid_chart(graph_dict)
-        
-        if raw:
-            return PlainTextResponse(content=mermaid_code)
-            
-        return {"mermaid_code": mermaid_code}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/embed/{repo_name}")
-def embed_repo(repo_name: str):
-    try:
-        repo_path = os.path.join("temp_repos", repo_name)
-        
-        if not os.path.exists(repo_path):
-            raise HTTPException(status_code=404, detail="Repository not found. Please ingest it first.")
-            
-        total_chunks = 0
-        
-        # Scan the repo for Python files
-        for root, _, files in os.walk(repo_path):
-            for file in files:
-                if file.endswith('.py'):
-                    full_path = os.path.join(root, file)
-                    
-                    # Process the file cleanly via the AST chunker
-                    chunks = chunk_python_file(full_path)
-                    
-                    # Push the chunks to vector DB
-                    if chunks:
-                        store_chunks_in_supabase(repo_name, chunks)
-                        total_chunks += len(chunks)
-                        
-        return {
-            "message": "Successfully embedded repository.",
-            "total_chunks_processed": total_chunks
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/search")
-def search_repository(request: SearchRequest):
-    try:
-        # Perform semantic pgvector search
-        results = search_code(request.query)
-        return {"results": results}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/chat")
-def chat_with_repo(request: ChatRequest):
-    try:
-        # Launch our LCEL RAG pipeline with custom GPT prompts & context injection
-        answer_string = generate_explanation(request.repo_name, request.question)
-        return {"answer": answer_string}
-    except Exception as e:
-        # Elegantly intercept Langchain or Authentication errors directly to Swagger UI
-        err_msg = str(e)
-        if "AuthenticationError" in err_msg or "api_key" in err_msg.lower() or "401" in err_msg:
-            raise HTTPException(status_code=401, detail="Your OPENAI_API_KEY is missing/invalid in the .env file!")
-        elif "insufficient_quota" in err_msg.lower() or "429" in err_msg or "resource_exhausted" in err_msg.lower():
-            raise HTTPException(status_code=429, detail="Your Gemini API key has hit its quota limit (15 requests per minute on free tier). Please wait a minute or check your billing details.")
-        else:
-            raise HTTPException(status_code=500, detail=f"Langchain / Database Error: {err_msg}")
+# Include Routers
+app.include_router(ingest_router)
+app.include_router(diagram_router)
+app.include_router(chat_router)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

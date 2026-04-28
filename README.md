@@ -33,18 +33,15 @@
 ```text
 opensource_compass/
 ├── backend/
-│   ├── main.py                  # FastAPI entry point (CORS enabled)
+│   ├── main.py                  # Thin FastAPI entry point
 │   ├── requirements.txt         # Python dependencies
 │   ├── .env                     # API keys (gitignored)
 │   ├── app/
-│   │   ├── git_service.py       # Repo cloning & scanning
-│   │   ├── parser.py            # AST import extraction
-│   │   ├── graph_builder.py     # NetworkX dependency graph
-│   │   ├── chunker.py           # AST code chunking
-│   │   ├── vector_store.py      # Supabase pgvector (2-strategy search)
-│   │   ├── prompts.py           # LangChain prompt templates
-│   │   ├── chat_engine.py       # Gemini RAG pipeline
-│   │   └── diagram_generator.py # Mermaid.js chart generator
+│   │   ├── api/                 # API Routers
+│   │   ├── core/                # Core Configs
+│   │   ├── models/              # Pydantic Schemas
+│   │   ├── services/            # Business Logic
+│   │   └── utils/               # Helpers
 │   └── tests/
 │       ├── test_chat.py
 │       └── test_embed.py
@@ -53,11 +50,12 @@ opensource_compass/
     ├── index.html
     ├── package.json
     └── src/
-        ├── App.jsx              # Landing ↔ Dashboard state controller
+        ├── App.jsx              # State controller
         ├── index.css            # Dark-mode design system
-        └── components/
-            ├── LandingView.jsx  # Glowing input + chained ingest/embed
-            └── DashboardView.jsx # Chat + Mermaid canvas
+        ├── api/                 # Extracted API client
+        └── views/               # UI Page Views
+            ├── DashboardView.jsx
+            └── LandingView.jsx
 ```
 
 ## 🛠️ Setup & Installation

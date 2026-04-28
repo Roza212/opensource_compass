@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import LandingView from './components/LandingView';
-import DashboardView from './components/DashboardView';
+import LandingView from './views/LandingView';
+import DashboardView from './views/DashboardView';
 import './index.css';
 
 function App() {

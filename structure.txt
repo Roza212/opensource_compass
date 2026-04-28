@@ -6,31 +6,49 @@ opensource_compass/
 │
 ├── backend/
 │   ├── .env
-│   ├── main.py                  # FastAPI entry point (CORS enabled)
+│   ├── main.py                  # Thin FastAPI entry point
 │   ├── requirements.txt         # Python dependencies
 │   ├── app/
-│   │   ├── __init__.py
-│   │   ├── git_service.py       # Phase 1: Clone & scan repos
-│   │   ├── parser.py            # AST parsing engine
-│   │   ├── graph_builder.py     # Phase 2: NetworkX dependency graph
-│   │   ├── chunker.py           # Phase 3: AST code chunking
-│   │   ├── vector_store.py      # Phase 3: Supabase pgvector embeddings
-│   │   ├── prompts.py           # Phase 4: LangChain prompt templates
-│   │   ├── chat_engine.py       # Phase 4: Gemini RAG chat pipeline
-│   │   └── diagram_generator.py # Phase 5: Mermaid.js chart generator
+│   │   ├── api/                 # API Routers
+│   │   │   ├── chat.py
+│   │   │   ├── diagram.py
+│   │   │   └── ingest.py
+│   │   ├── core/                # Core Configs
+│   │   │   └── prompts.py
+│   │   ├── models/              # Pydantic Schemas
+│   │   │   └── schemas.py
+│   │   ├── services/            # Business Logic
+│   │   │   ├── chat_engine.py
+│   │   │   ├── git_service.py
+│   │   │   └── vector_store.py
+│   │   └── utils/               # Helpers
+│   │       ├── chunker.py
+│   │       ├── diagram_generator.py
+│   │       ├── errors.py
+│   │       ├── graph_builder.py
+│   │       └── parser.py
 │   ├── tests/
 │   │   ├── test_chat.py
 │   │   └── test_embed.py
-│   └── temp_repos/              # Cloned repositories (gitignored)
+│   └── .temp_repos/             # Cloned repositories (hidden/ignored)
 │
 └── frontend/
     ├── index.html
     ├── package.json
     ├── vite.config.js
     └── src/
-        ├── main.jsx
         ├── App.jsx              # State controller (Landing vs Dashboard)
         ├── index.css            # Dark-mode design system
-        └── components/
-            ├── LandingView.jsx  # Glowing input + Analyze button
-            └── DashboardView.jsx # Split-screen chat + architecture canvas
+        ├── main.jsx
+        ├── api/                 # Extracted API client
+        │   └── client.js
+        └── views/               # UI Page Views
+            ├── DashboardView.jsx
+            └── LandingView.jsx
+
+RUN:
+cd backend
+uvicorn main:app --reload
+
+cd frontend
+npm run dev

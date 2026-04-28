@@ -19,17 +19,17 @@ def clone_and_count_python_files(github_url: str) -> dict:
             repo_name = repo_name[:-4]
 
         # Define the target directory path
-        target_dir = os.path.join("temp_repos", repo_name)
+        target_dir = os.path.join(".temp_repos", repo_name)
 
         # If the target directory already exists, aggressively delete it to start fresh
         if os.path.exists(target_dir):
             shutil.rmtree(target_dir, onerror=on_rm_error)
             
-        # Ensure the parent directory temp_repos/ exists
-        os.makedirs("temp_repos", exist_ok=True)
+        # Ensure the parent directory .temp_repos/ exists
+        os.makedirs(".temp_repos", exist_ok=True)
 
-        # Clone the repository
-        Repo.clone_from(github_url, target_dir)
+        # Clone the repository (use shallow clone for massive speedup)
+        Repo.clone_from(github_url, target_dir, depth=1)
 
         # Traverse the directory and count exactly how many .py files exist
         python_file_count = 0

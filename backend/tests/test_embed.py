@@ -1,8 +1,8 @@
 import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app.chunker import chunk_python_file
-from app.vector_store import store_chunks_in_supabase, search_code
+from app.utils.chunker import chunk_python_file
+from app.services.vector_store import store_chunks_in_supabase, search_code
 
 print("1. Scraping and Chunking 'main.py'...")
 chunks = chunk_python_file("main.py")

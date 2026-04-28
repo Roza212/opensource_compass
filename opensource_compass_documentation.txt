@@ -1,0 +1,100 @@
+================================================================================
+                    OPENSOURCE COMPASS - PROJECT DOCUMENTATION
+================================================================================
+
+1. EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+OpenSource Compass is a full-stack, AI-powered mentorship application designed to help developers explore, understand, and learn from open-source Python codebases. By providing a GitHub URL, the application autonomously clones the repository, parses the codebase using Abstract Syntax Trees (AST), generates a visual dependency flowchart, and stores semantic code embeddings in a vector database. Users can then interact with an AI Mentor (powered by Google Gemini) that possesses full contextual knowledge of the ingested codebase.
+
+2. TECHNOLOGY STACK
+--------------------------------------------------------------------------------
+- Frontend: React, Vite, Tailwind CSS, Mermaid.js, Lucide Icons
+- Backend: FastAPI, Uvicorn (async server)
+- AI & LLM: Google Gemini 3 Flash Preview, SentenceTransformers (all-MiniLM-L6-v2)
+- Orchestration: LangChain Expression Language (LCEL)
+- Database: Supabase PostgreSQL with pgvector extension
+- Code Parsing: tree-sitter, NetworkX
+
+3. ARCHITECTURAL WORKFLOW
+--------------------------------------------------------------------------------
+1. Ingestion Phase: User pastes a GitHub URL in the React frontend.
+2. Cloning: Backend performs a shallow clone (depth=1) of the repository into a hidden local `.temp_repos` directory.
+3. Embedding Phase: Backend scans for `.py` files. It chunks the code at the function/class level using AST. These chunks are embedded locally using SentenceTransformers and pushed to Supabase.
+4. Diagram Generation: Backend maps internal Python imports via NetworkX and translates them into a valid Mermaid.js flowchart string.
+5. Interactive Chat Phase: Frontend requests the Mermaid chart and displays it. User asks questions; backend performs semantic vector search in Supabase (filtered by repository) and injects the retrieved code context into the Gemini prompt via LangChain.
+
+4. DETAILED DIRECTORY STRUCTURE
+--------------------------------------------------------------------------------
+opensource_compass/
+├── backend/
+│   ├── main.py                  # Core FastAPI application (Thin Entry Point)
+│   ├── requirements.txt         # Python dependencies
+│   ├── .env                     # API keys (Supabase, Google)
+│   ├── app/                     
+│   │   ├── api/                 # API Routers
+│   │   │   ├── chat.py
+│   │   │   ├── diagram.py
+│   │   │   └── ingest.py
+│   │   ├── core/                # Core Configs
+│   │   │   └── prompts.py
+│   │   ├── models/              # Pydantic Schemas
+│   │   │   └── schemas.py
+│   │   ├── services/            # Business Logic
+│   │   │   ├── chat_engine.py
+│   │   │   ├── git_service.py
+│   │   │   └── vector_store.py
+│   │   └── utils/               # Helpers
+│   │       ├── chunker.py
+│   │       ├── diagram_generator.py
+│   │       ├── errors.py
+│   │       ├── graph_builder.py
+│   │       └── parser.py
+│   └── tests/                   # Isolated test suite
+│       ├── test_chat.py
+│       └── test_embed.py
+│
+└── frontend/
+    ├── index.html               # Main entry point, loads custom SVG favicon
+    ├── package.json             # NPM dependencies (lucide-react, mermaid)
+    ├── vite.config.js
+    ├── public/
+    │   └── favicon.svg          # Custom scalable transparent compass logo
+    └── src/
+        ├── App.jsx              # High-level state controller
+        ├── index.css            # Comprehensive dark-mode design system
+        ├── main.jsx
+        ├── api/                 # Extracted API client
+        │   └── client.js
+        └── views/               # UI Page Views
+            ├── DashboardView.jsx# Dual-panel interface (Mermaid diagram + Chat UI)
+            └── LandingView.jsx  # Initial input screen, orchestrates ingest/embed API calls
+
+
+5. RECENT ARCHITECTURAL FIXES & STABILITY IMPROVEMENTS
+--------------------------------------------------------------------------------
+The application has recently undergone massive architectural hardening to prevent edge-case failures:
+
+A. Zero-Crash Hot Reloading: 
+Uvicorn's `watchfiles` utility on Windows historically crashed the server when detecting thousands of files being cloned. By renaming the temp directory to `.temp_repos`, the directory is natively treated as hidden and ignored, ensuring zero downtime during massive ingestion.
+
+B. Shallow Clone Optimization:
+Large mono-repos (like 'python-mini-projects') caused the frontend to timeout (5+ minutes) because `git` attempted to download years of commit history. By appending `depth=1` to the GitPython clone mechanism, repositories now download only the latest snapshot, dropping ingest times to mere seconds.
+
+C. Bulletproof Mermaid.js Rendering:
+Repositories with no imports (or zero Python files) previously generated invalid graph strings (e.g., `graph LR;`) which fatally crashed the Mermaid.js rendering engine on the frontend. The `diagram_generator.py` was refactored to explicitly map and declare all file nodes *before* drawing edges. It also includes a graceful fallback node for non-Python repositories to prevent blank canvases.
+
+D. UI Error Sanitization:
+When external databases (like Supabase) went offline, the Python SDK returned hundreds of lines of raw Cloudflare HTML code as the exception string. The frontend naively rendered this HTML, destroying the UI layout. A `sanitize_error` middleware was added to `main.py` that intercepts massive `521 Web server is down` and DNS failures, converting them into single-sentence, user-friendly warnings while truncating all other generic exceptions to 300 characters.
+
+E. SVG Favicon Enhancement:
+To replace standard square-boxed AI-generated images, a pure XML-based scalable Vector Graphic (`favicon.svg`) was hand-coded. It perfectly mimics the Lucide React compass icon colored in a glowing neon-purple (`#6366f1`), providing a pristine transparent background.
+
+6. FASTAPI ENDPOINTS SUMMARY
+--------------------------------------------------------------------------------
+- GET  /health: Simple healthcheck.
+- POST /ingest: Initiates git shallow clone and counts python files.
+- GET  /graph/{repo}: Returns raw NetworkX JSON dictionary.
+- GET  /diagram/{repo}?raw=true: Returns formatted Mermaid string.
+- POST /embed/{repo}: Triggers the AST chunker and pgvector database push.
+- POST /search: Semantic pgvector search query.
+- POST /chat: Master LCEL pipeline endpoint combining search and LLM generation.
