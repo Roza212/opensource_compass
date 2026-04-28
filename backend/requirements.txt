@@ -13,3 +13,4 @@ langchain-google-genai
 langchain-community
 google-genai
 watchfiles
+pytest
