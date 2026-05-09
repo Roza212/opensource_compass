@@ -1,117 +1,123 @@
 # OpenSource Compass 🧭
 
-**OpenSource Compass** is a full-stack, AI-powered mentorship tool designed to help junior developers explore, understand, and learn from any open-source Python codebase. Paste a GitHub repo URL, and instantly get an interactive architecture diagram and an AI mentor that can explain the code in simple terms.
+**OpenSource Compass** is an advanced, AI-powered codebase exploration and mentorship platform. It transforms complex open-source repositories into interactive, semantically-encoded visual maps, providing junior and senior developers alike with a "GPS" for unfamiliar codebases.
 
-## ✨ Features
+[![D3 Tree](https://img.shields.io/badge/Visualization-D3.js-orange)](https://d3js.org/)
+[![AI Mentor](https://img.shields.io/badge/AI-Gemini_2.0_Flash-blue)](https://deepmind.google/technologies/gemini/)
+[![Backend](https://img.shields.io/badge/Backend-FastAPI-green)](https://fastapi.tiangolo.com/)
+[![Database](https://img.shields.io/badge/Vector_DB-Supabase-emerald)](https://supabase.com/)
 
-### 🎨 Frontend (React + Tailwind CSS)
-- **Landing View**: Sleek dark-mode input with glowing neon accents — paste a GitHub URL and click Analyze
-- **Split-Screen Dashboard**:
-  - **AI Mentor Chat** (left panel): Chat with Gemini 3 about the repo's architecture, patterns, and modules
-  - **System Architecture Canvas** (right panel): Auto-rendered Mermaid.js dependency flowchart
+---
 
-### ⚙️ Backend (FastAPI + Python)
-- **Git Ingestion**: Clones repositories and scans for Python files
-- **AST Parsing & Chunking**: Uses `tree-sitter` to extract classes, functions, and imports
-- **Vector Embeddings**: Generates embeddings via `SentenceTransformers` and stores them in Supabase pgvector
-- **Semantic Code Search**: Natural language queries matched against embedded code chunks
-- **LCEL RAG Chat**: LangChain pipeline with **Gemini 3 Flash Preview** for senior-developer-level explanations
-- **Mermaid Architecture Maps**: Auto-generates interactive `graph LR` flowcharts from Python import graphs
+## ✨ Key Features
 
-## 🏗️ Architecture Stack
+### 🗺️ Interactive Architecture Explorer (D3.js)
+- **Collapsible Hierarchical Tree**: Navigate deep file structures with a fluid, horizontal D3.js visualization.
+- **Semantic Data Encoding**:
+  - **Color-Coded**: Instantly identify languages (Python/Teal, JS/Amber, Go/Blue, etc.).
+  - **Size-Mapped**: Node radius scales with **Lines of Code (LOC)**, highlighting major modules at a glance.
+- **Bi-directional Navigation**: Explore "Dependencies" (imports) and "Depended on by" (incoming imports) via interactive chips.
+- **Visual Depth Fade**: Hierarchical link styling guides the eye toward the system's entry points.
+
+### 🤖 AI Mentorship & Onboarding
+- **RAG-Powered Chat**: Chat with an AI mentor (Gemini 2.0 Flash) that has deep context of the entire repo.
+- **Automated Guided Tours**: Generates a 5-step interactive onboarding tour for any repo, highlighting central modules using graph theory (Degree Centrality).
+- **Context-Aware Explanations**: One-click "Explain with AI" buttons on every file node.
+- **Source Citations**: AI responses include clickable file badges that highlight the relevant code in the diagram.
+
+### 📊 Codebase Health & Analysis
+- **Static Analysis Dashboard**: Real-time reports on Cyclomatic Complexity (Radon), Comment Density, and Dependency coupling.
+- **Weighted Health Scoring**: Provides an overall "Compass Score" to evaluate codebase maintainability.
+
+### ⚙️ High-Performance Engine
+- **Async Ingestion Pipeline**: Powered by **Celery & Redis** for non-blocking cloning and embedding of large repositories.
+- **Multi-Language AST Support**: Advanced parsing for Python, JavaScript, TypeScript, Go, Rust, Java, C/C++, and more via `tree-sitter`.
+- **Reranked Retrieval**: Uses a **Cross-Encoder** reranker to ensure the most relevant code chunks reach the LLM.
+- **SHA-Based Caching**: Skip re-indexing for unchanged repositories to save time and API quota.
+
+---
+
+## 🏗️ Technical Stack
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | React, Vite, Tailwind CSS, Mermaid.js, Lucide Icons |
-| **Backend API** | FastAPI, Uvicorn (async), CORS enabled |
-| **AI Models** | Google Gemini 3 Flash Preview, SentenceTransformers (MiniLM) |
-| **Orchestration** | LangChain Expression Language (LCEL) |
+| **Frontend** | React 19, Vite, Tailwind CSS v4, D3.js v7, Lucide Icons |
+| **Backend API** | FastAPI, Uvicorn, SlowAPI (Rate Limiting) |
+| **AI/ML** | Google Gemini 2.0 Flash, SentenceTransformers, Cross-Encoders |
+| **Task Queue** | Celery, Redis |
 | **Database** | Supabase Postgres (pgvector) |
-| **Syntax Analysis** | tree-sitter |
+| **Analysis** | Tree-Sitter (Multi-lang AST), Radon (Complexity) |
+
+---
 
 ## 📁 Project Structure
+
 ```text
 opensource_compass/
 ├── backend/
-│   ├── main.py                  # Thin FastAPI entry point
-│   ├── requirements.txt         # Python dependencies
-│   ├── .env                     # API keys (gitignored)
+│   ├── main.py                  # API Entry Point & Middleware
 │   ├── app/
-│   │   ├── api/                 # API Routers
-│   │   ├── core/                # Core Configs
-│   │   ├── models/              # Pydantic Schemas
-│   │   ├── services/            # Business Logic
-│   │   └── utils/               # Helpers
-│   └── tests/
-│       ├── test_chat.py
-│       └── test_embed.py
+│   │   ├── api/                 # Routers (Chat, Ingest, Diagram, Analyze, etc.)
+│   │   ├── services/            # Logic (ChatEngine, VectorStore, GitService)
+│   │   ├── utils/               # Helpers (Chunker, GraphBuilder, RadonAnalysis)
+│   │   ├── core/                # Configs (Prompts, Rate Limiting)
+│   │   └── worker.py            # Celery Task Definitions
+│   └── requirements.txt         # Backend Dependencies
 │
 └── frontend/
-    ├── index.html
-    ├── package.json
-    └── src/
-        ├── App.jsx              # State controller
-        ├── index.css            # Dark-mode design system
-        ├── api/                 # Extracted API client
-        └── views/               # UI Page Views
-            ├── DashboardView.jsx
-            └── LandingView.jsx
+    ├── src/
+    │   ├── api/                 # Centralized API Client
+    │   ├── components/          # Reusable UI (TreeDiagram, SidePanel)
+    │   └── views/               # Page Layouts (Landing, Dashboard, About)
+    ├── vite.config.js           # Tailwind v4 Integrated Config
+    └── index.css                # Custom Design System
 ```
+
+---
 
 ## 🛠️ Setup & Installation
 
-### Prerequisites
+### 1. Prerequisites
 - Python 3.10+
 - Node.js 18+
+- **Redis Server** (Installed natively or via Docker)
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/Roza212/opensource_compass.git
-cd opensource_compass
-```
-
-### 2. Backend Setup
-```bash
-cd backend
-pip install -r requirements.txt
-```
-
+### 2. Environment Configuration
 Create a `.env` file in the `backend/` directory:
 ```env
-SUPABASE_URL=your-supabase-project-url
-SUPABASE_KEY=your-supabase-anon-key
-GOOGLE_API_KEY=your-gemini-ai-studio-key
-GEMINI_MODEL_NAME=gemini-3-flash-preview
+# AI & Database
+GOOGLE_API_KEY=your_gemini_key
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_key
+
+# Infrastructure
+REDIS_URL=redis://localhost:6379/0
+CELERY_BROKER_URL=redis://localhost:6379/0
 ```
 
-Start the API server:
-```bash
-uvicorn main:app --reload --reload-exclude "temp_repos"
-```
-Swagger UI available at `http://127.0.0.1:8000/docs`
+### 3. Execution Order
+1. **Start Redis**: Ensure the Redis service is running.
+2. **Start Backend**: `uvicorn main:app --reload`
+3. **Start Worker**: `celery -A app.worker.celery_app worker --loglevel=info --pool=solo`
+4. **Start Frontend**: `npm run dev`
 
-### 3. Frontend Setup
-```bash
-cd frontend
-npm install
-npm run dev
-```
-App available at `http://localhost:5173`
+---
 
-## 🔌 API Endpoints
+## 🔌 Core API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/health` | Health check |
-| `POST` | `/ingest` | Clone a GitHub repo |
-| `GET` | `/graph/{repo}` | Get dependency graph JSON |
-| `GET` | `/diagram/{repo}?raw=true` | Get Mermaid flowchart |
-| `POST` | `/embed/{repo}` | Generate vector embeddings |
-| `POST` | `/search` | Semantic code search |
-| `POST` | `/chat` | AI mentor chat (RAG) |
-
-## 📄 License
-MIT
+| `POST` | `/ingest` | Initiate async repo ingestion (returns Job ID) |
+| `GET`  | `/jobs/{id}` | Poll ingestion status & progress |
+| `GET`  | `/tree` | Fetch hierarchical D3 JSON for visualization |
+| `GET`  | `/analyze` | Generate Codebase Health & Complexity report |
+| `POST` | `/chat` | Contextual AI mentorship (with RAG & Reranking) |
+| `POST` | `/tour` | Generate AI guided tour of top modules |
 
 ---
-*Built for junior developers who want to understand open-source code, not just read it.*
+
+## 📄 License
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+*Built to make open-source code accessible to everyone.*
