@@ -153,3 +153,175 @@ History of Changes - Gemini Integration Fixes
 - What: Performed a full system verification after the enterprise refactoring.
 - Why: To guarantee no internal imports or data flows were broken during the transition.
 - How: Executed pytest on test_chat.py to verify internal routing, and ran Invoke-RestMethod against the FastAPI routes to confirm uvicorn successfully mounted the new /api/ routers without 404s.
+
+25. ABOUT PAGE & ROUTE NAVIGATION
+- What: Created a dedicated About page and added conditional routing logic to App.jsx.
+- Why: The user requested a page describing the project's purpose and how it works.
+- How: 
+   - Created AboutView.jsx featuring a descriptive breakdown of the Vision, Ingestion Phase, Vector Embedding, and AI Mentorship.
+   - Updated LandingView.jsx with an "About" link in the top-right corner.
+   - Refactored App.jsx to handle routing state (landing, about, dashboard) via conditional rendering.
+   - Added hover effects and responsive styling to the new About page cards.
+
+26. MULTI-LANGUAGE AST SUPPORT (CHUNKER)
+- What: Extended backend/app/utils/chunker.py from Python-only to 9+ languages.
+- Why: The repo could only parse .py files, leaving JS, TS, Go, Java, Rust, C, C++, Ruby, Markdown unindexed.
+- How:
+   - Created a LANGUAGE_MAP dict mapping file extensions to tree-sitter grammar packages.
+   - Installed tree-sitter-javascript, typescript, go, java, rust, c, cpp, ruby.
+   - Added a fallback line-based chunker (~50 lines per chunk) for unsupported types.
+   - Added a detected_language field to each chunk dict.
+   - Updated ingest.py to walk and process all supported file extensions.
+
+27. INCREMENTAL INGESTION & SHA CACHING
+- What: Added commit SHA tracking so re-submitted repos skip re-embedding if unchanged.
+- Why: Every submission re-cloned and re-embedded the entire codebase, wasting time and Supabase write quotas.
+- How:
+   - Created a repos table in Supabase (repo_name TEXT PRIMARY KEY, last_commit_sha TEXT, ingested_at TIMESTAMP).
+   - Fetched repo.head.commit.hexsha after cloning via GitPython.
+   - If SHA matches stored value: return early with status "already_indexed".
+   - If SHA differs: delete old code_chunks rows then re-embed; status "updated".
+   - Added upsert_repo_sha() and delete_repo_chunks() to vector_store.py.
+   - Added a "Loaded from cache" banner in LandingView.jsx.
+
+28. CROSS-ENCODER RERANKING (RAG OPTIMIZATION)
+- What: Added a reranking step between pgvector retrieval and Gemini generation.
+- Why: Top-k cosine similarity results were often only marginally relevant.
+- How:
+   - Installed sentence-transformers; uses cross-encoder/ms-marco-MiniLM-L-6-v2.
+   - In chat_engine.py: retrieve top 15 chunks, score each with CrossEncoder against the query, keep top 5.
+   - Lazy-load CrossEncoder as a singleton (like the SentenceTransformer).
+   - Added rerank_scores field to the /chat response for debugging.
+   - Logs a warning if all scores are below 0.3 (out-of-scope question).
+
+29. AI SOURCE CITATIONS
+- What: AI lists its source files at the end of every answer; rendered as clickable badges in the UI.
+- Why: Users had no way to verify which files the AI drew from.
+- How:
+   - Updated prompts.py: format chunks as [Source: {file_name}], instruct model to produce a "Sources:" section.
+   - In chat.py: regex-split AI text at "Sources:" and return sources: List[str] in JSON.
+   - In DashboardView.jsx: render source badges below each AI message.
+   - Clicking a badge highlights the matching Mermaid SVG node (purple border, auto-scrolls).
+
+30. CODEBASE HEALTH ANALYSIS ENDPOINT
+- What: Added GET /analyze/{repo_name} returning a full static analysis report.
+- Why: No way to understand codebase quality at a glance.
+- How:
+   - Installed radon for Python cyclomatic complexity; keyword counting for other languages.
+   - Created backend/app/api/analyze.py computing LOC, comment ratio, dependency count, health score.
+   - Weighted scoring: 40% low complexity + 20% high comments + 40% low dependencies.
+   - Registered router in main.py; added fetchHealthReport() to client.js.
+   - Added a "Health" tab to DashboardView.jsx canvas (score card, issues alert, color-coded file table).
+
+31. AI ONBOARDING TOUR
+- What: After ingestion, chat panel offers a 5-step AI-generated guided tour of the codebase.
+- Why: New developers have no starting point on an unfamiliar codebase.
+- How:
+   - Added POST /tour in chat.py; uses NetworkX degree_centrality() for top 10 files, asks Gemini to produce JSON tour steps.
+   - Added TourRequest schema; added generateTour() to client.js.
+   - DashboardView.jsx: shows "Start Tour"/"Skip" on first load; step cards with Prev/Next/Finish navigation.
+   - Each step auto-highlights and scrolls the matching Mermaid node via handleSourceClick().
+   - Fixed ChatPromptTemplate crash by escaping JSON example braces as {{ }} in system prompt.
+
+32. CHAT HISTORY PERSISTENCE
+- What: Conversations saved to Supabase and restored on page reload.
+- Why: Every refresh wiped the chat history.
+- How:
+   - Created chat_sessions table in Supabase (id UUID, repo_name TEXT, messages JSONB, timestamps).
+   - Updated ChatRequest to include optional session_id.
+   - /chat: reads history if session_id exists, appends new messages, upserts row.
+   - Added GET /sessions/{repo_name} and GET /sessions/messages/{session_id}.
+   - chat_engine.py: accepts history list, injects last 10 messages as Conversation History into prompt.
+   - DashboardView.jsx: session_id in localStorage keyed by repo name; pre-populates chat on mount.
+   - "New Chat" button clears localStorage and resets state.
+
+33. ASYNC CELERY INGESTION PIPELINE
+- What: Refactored /ingest to be non-blocking using Celery + Redis.
+- Why: Large repos caused multi-minute HTTP timeouts; progress bar was fake.
+- How:
+   - Installed celery[redis] and redis.
+   - Created backend/app/worker.py with Celery app and run_ingestion task (clone + chunk + embed + SHA upsert).
+   - /ingest: inserts a jobs row (status="queued"), calls run_ingestion.delay(), returns job_id immediately.
+   - Added GET /jobs/{job_id} endpoint to poll real status from Supabase jobs table.
+   - LandingView.jsx: polls every 2s; progress maps queued=8%, running=animated 55-95%, completed=100%.
+   - Created docker-compose.yml defining redis, api, worker services.
+   - Added REDIS_URL=redis://localhost:6379/0 to backend/.env.
+
+34. REDIS INSTALLED ON WINDOWS (NO DOCKER)
+- What: Installed Redis natively as a Windows Service.
+- Why: Docker not installed; Celery requires a running Redis broker.
+- How:
+   - Downloaded Redis-x64-5.0.14.1.msi from tporadowski/redis GitHub releases.
+   - Installed silently via msiexec /qn; auto-registers as a service on port 6379.
+   - Verified with: & "C:\Program Files\Redis\redis-cli.exe" ping -> PONG.
+   - Redis auto-starts on every Windows boot (no manual action needed).
+
+--- CURRENT STACK STARTUP ORDER (after any machine restart) ---
+  1. Redis     - auto-runs as Windows Service (no action needed)
+  2. Terminal 1 (cd backend): uvicorn main:app --reload --reload-exclude ".temp_repos/*"
+  3. Terminal 2 (cd backend): celery -A app.worker.celery_app worker --loglevel=info --pool=solo
+  4. Terminal 3 (cd frontend): npm run dev
+
+36. INCREASED RATE LIMITS
+- What: Increased the rate limits across all API endpoints.
+- Why: The previous limits were too restrictive (e.g., 5/hour for ingest, 60/hour for chat), making the project difficult to use and test.
+- How:
+   - Updated ingest.py: POST /ingest limit increased to 20/hour.
+   - Updated chat.py: POST /chat and POST /search limits increased to 500/hour.
+   - Updated diagram.py: GET /graph and GET /diagram limits increased to 200/hour.
+
+37. HIERARCHICAL TREE VISUALIZATION
+- What: Added GET /tree endpoint and graph_to_tree transformation logic.
+- Why: To support D3.js collapsible tree visualizations, which are more interactive and scalable than Mermaid diagrams for deep file hierarchies.
+- How:
+   - Updated graph_builder.py: build_repo_graph now returns a NetworkX DiGraph object.
+   - Added graph_to_tree(G, repo_name, repo_path):
+      - Identifies root nodes (in-degree 0) or creates a virtual root.
+      - Recursively builds a children: [] JSON structure.
+      - Handles cycles via is_cycle_ref: true to prevent infinite recursion.
+      - Caps depth at 8 levels.
+      - Includes metadata: loc, language, imports.
+      - Collects stats: total_files, max_depth, language counts.
+   - Updated diagram.py: Added /tree endpoint with 100/hour rate limit.
+   - Updated chat.py: Fixed generate_tour to handle the new DiGraph return type.
+
+38. ENHANCED TREE DIAGRAM SIDE PANEL
+- What: Added a slide-in detail panel and bidirectional navigation to the TreeDiagram.
+- Why: To provide deep context for individual files and allow users to traverse the codebase via import relationships.
+- How:
+   - Backend: graph_builder.py now includes "dependents" (files that import the current node) for each tree node.
+   - Frontend: TreeDiagram.jsx now manages a "selectedNode" state.
+   - UI: When a node is clicked, the canvas shrinks to 65% width to reveal a 35% detail panel.
+   - Features:
+      - Path Copying: One-click clipboard copy for relative paths.
+      - Bi-directional Nav: "Dependencies" and "Depended on by" sections show related files as clickable chips that pan/zoom the tree to that node.
+      - Selection Highlighting: Selected nodes get an outer ring and bold labels.
+      - AI Integration: "Ask AI" button pre-fills a context-aware prompt in the chat panel.
+
+39. TREE DIAGRAM LAYOUT OPTIMIZATION (HORIZONTAL)
+- What: Switched from vertical to horizontal tree orientation and implemented fixed node spacing.
+- Why: To resolve "congestion" where labels overlapped in complex file hierarchies. Horizontal layout is superior for long file names.
+- How:
+   - Orientation: Root starts on left, children extend right (diagonal bezier curves).
+   - Spacing: Used d3.nodeSize([45, 280]) to guarantee vertical (45px) and horizontal (280px) separation regardless of tree size.
+   - Visibility: Removed container-level overflow scrolling to avoid D3 zoom/pan conflicts. Added a floating control bar with a Recenter tool.
+
+40. RESPONSIVE VISUALIZATION & TAILWIND V4 CONFIG
+- What: Properly configured Tailwind CSS v4 Vite plugin and implemented a mobile-first responsive design for the tree.
+- Why: Resolved issues where the layout was "too small" or broken (stacked unstyled elements) on smaller screens.
+- How:
+   - Config: Added @tailwindcss/vite to vite.config.js to fix missing utility styles.
+   - Dashboard: Updated index.css media queries to provide more vertical space (600px/65vh) to the canvas on smaller viewports.
+   - Tree Component: 
+      - The detail panel now uses fixed positioning (full-screen overlay) on mobile to preserve diagram width.
+      - Floating controls adaptively switch from vertical to horizontal based on screen size.
+      - Main container uses flex-col on mobile and flex-row on desktop.
+
+41. SEMANTIC TREE ENCODING
+- What: Implemented color and size encoding based on node metadata (language and LOC).
+- Why: To provide instant visual insight into codebase composition and complexity without needing to click every node.
+- How:
+   - Color: Language-specific palette (Teal for Python, Amber for JS, etc.) with a floating legend.
+   - Size: Node radius scaled by LOC (5px for small scripts, up to 11px for large modules).
+   - Tooltip: Added hover tooltips for lightweight info retrieval.
+   - Link Fade: Hierarchical link styling (thicker/darker at top, thinner/lighter at bottom) to emphasize the entry points.

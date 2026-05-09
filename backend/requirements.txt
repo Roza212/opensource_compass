@@ -14,3 +14,15 @@ langchain-community
 google-genai
 watchfiles
 pytest
+tree-sitter-javascript
+tree-sitter-typescript
+tree-sitter-go
+tree-sitter-java
+tree-sitter-rust
+tree-sitter-c
+tree-sitter-cpp
+tree-sitter-ruby
+radon
+celery[redis]
+redis
+slowapi

@@ -1,61 +1,103 @@
 import { useState, useRef, useEffect } from 'react';
 import { Loader2, Compass } from 'lucide-react';
-import { ingestRepo, embedRepo } from '../api/client';
+import { ingestRepo, fetchJobStatus } from '../api/client';
 
-export default function LandingView({ onAnalyze }) {
+// Maps job status to a human-readable message and a progress percentage
+const STATUS_MAP = {
+  queued:    { msg: 'Preparing analysis pipeline...', progress: 8 },
+  running:   { msg: 'Indexing & analyzing codebase...', progress: 55 },
+  completed: { msg: 'Analysis complete!',              progress: 100 },
+  failed:    { msg: 'Analysis failed.',                progress: 0 },
+};
+
+export default function LandingView({ onAnalyze, onNavigateAbout }) {
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
-  
-  const progressInterval = useRef(null);
 
-  // Cleanup interval on unmount
+  const pollInterval = useRef(null);
+  const animInterval = useRef(null);
+
+  // Cleanup all intervals on unmount
   useEffect(() => {
     return () => {
-      if (progressInterval.current) clearInterval(progressInterval.current);
+      if (pollInterval.current) clearInterval(pollInterval.current);
+      if (animInterval.current) clearInterval(animInterval.current);
     };
   }, []);
+
+  const stopPolling = () => {
+    if (pollInterval.current) { clearInterval(pollInterval.current); pollInterval.current = null; }
+    if (animInterval.current) { clearInterval(animInterval.current); animInterval.current = null; }
+  };
+
+  // Slowly animate the progress bar while the job is "running" (so it doesn't look stuck)
+  const startRunningAnimation = (currentProgress) => {
+    if (animInterval.current) clearInterval(animInterval.current);
+    animInterval.current = setInterval(() => {
+      setProgress((prev) => {
+        const remaining = 95 - prev;
+        return Math.min(prev + remaining * 0.04, 95);
+      });
+    }, 600);
+  };
 
   const handleIngest = async () => {
     if (!url.trim()) return;
     setLoading(true);
     setError('');
-    setProgress(0);
-
-    // Start logarithmic progress bar
-    progressInterval.current = setInterval(() => {
-      setProgress((prev) => {
-        const remaining = 95 - prev;
-        return Math.min(prev + (remaining * 0.08), 95); 
-      });
-    }, 500);
+    setProgress(5);
+    setStatusMsg('Initializing...');
 
     try {
-      setStatusMsg('Cloning repository...');
-      const ingestData = await ingestRepo(url);
-      const repoName = ingestData.repo_name || url.trim().split('/').pop().replace('.git', '');
+      // 1. Queue the job — returns immediately with { job_id, repo_name }
+      const { job_id, repo_name } = await ingestRepo(url);
 
-      setStatusMsg('Generating embeddings...');
-      await embedRepo(repoName);
+      setStatusMsg(STATUS_MAP.queued.msg);
+      setProgress(STATUS_MAP.queued.progress);
 
-      if (progressInterval.current) clearInterval(progressInterval.current);
-      setProgress(100);
-      setStatusMsg('Ready!');
-      
-      // Wait a tiny beat so the user sees 100% completion before jumping
-      setTimeout(() => {
-        onAnalyze(repoName);
-      }, 500);
+      // 2. Poll every 2 seconds for status changes
+      pollInterval.current = setInterval(async () => {
+        try {
+          const job = await fetchJobStatus(job_id);
+          const mapped = STATUS_MAP[job.status] || STATUS_MAP.queued;
+
+          setStatusMsg(mapped.msg);
+
+          if (job.status === 'running') {
+            // Only kick off the animation once
+            if (!animInterval.current) startRunningAnimation();
+          }
+
+          if (job.status === 'completed') {
+            stopPolling();
+            setProgress(100);
+            setStatusMsg('Ready!');
+            setTimeout(() => onAnalyze(job.repo_name || repo_name), 600);
+          }
+
+          if (job.status === 'failed') {
+            stopPolling();
+            setProgress(0);
+            setError(job.error || 'Ingestion failed. Check the worker logs.');
+            setStatusMsg('');
+            setLoading(false);
+          }
+        } catch (pollErr) {
+          // Network hiccup — keep polling, don't abort
+          console.warn('Poll error (will retry):', pollErr.message);
+        }
+      }, 2000);
 
     } catch (err) {
-      if (progressInterval.current) clearInterval(progressInterval.current);
+      stopPolling();
       setError(err.message);
       setStatusMsg('');
       setLoading(false);
       setProgress(0);
-    } 
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -64,6 +106,25 @@ export default function LandingView({ onAnalyze }) {
 
   return (
     <div className="landing-container">
+      <button
+        onClick={onNavigateAbout}
+        style={{
+          position: 'absolute',
+          top: '2rem',
+          right: '2rem',
+          background: 'none',
+          border: 'none',
+          color: 'var(--text-secondary)',
+          cursor: 'pointer',
+          fontSize: '1rem',
+          transition: 'color 0.3s',
+          zIndex: 10
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.color = 'var(--neon-purple)'}
+        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+      >
+        About
+      </button>
       <Compass size={56} strokeWidth={1.5} style={{ color: '#8b5cf6', marginBottom: '1rem', position: 'relative', zIndex: 1 }} />
       <h1 className="landing-logo">OpenSource Compass</h1>
       <p className="landing-subtitle">
@@ -99,11 +160,11 @@ export default function LandingView({ onAnalyze }) {
               height: '100%',
               width: `${progress}%`,
               background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
-              transition: 'width 0.5s ease-out',
+              transition: 'width 0.6s ease-out',
               zIndex: 0
             }} />
           )}
-          
+
           <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {loading ? (
               <>
@@ -115,8 +176,6 @@ export default function LandingView({ onAnalyze }) {
             )}
           </div>
         </button>
-        
-
 
         {error && (
           <p style={{ color: '#f87171', fontSize: '0.85rem', textAlign: 'center', marginTop: '1rem' }}>

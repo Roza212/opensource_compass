@@ -9,3 +9,7 @@ class SearchRequest(BaseModel):
 class ChatRequest(BaseModel):
     repo_name: str
     question: str
+    session_id: str | None = None
+
+class TourRequest(BaseModel):
+    repo_name: str

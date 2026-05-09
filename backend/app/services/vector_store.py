@@ -22,6 +22,30 @@ def get_model():
         _model = SentenceTransformer('all-MiniLM-L6-v2')
     return _model
 
+def get_repo_commit_sha(repo_name: str) -> str:
+    try:
+        response = supabase.table("repos").select("last_commit_sha").eq("repo_name", repo_name).execute()
+        if response.data:
+            return response.data[0].get("last_commit_sha")
+    except Exception as e:
+        print(f"⚠️ Error fetching repo SHA: {e}")
+    return None
+
+def upsert_repo_sha(repo_name: str, sha: str):
+    try:
+        supabase.table("repos").upsert({
+            "repo_name": repo_name,
+            "last_commit_sha": sha
+        }).execute()
+    except Exception as e:
+        print(f"⚠️ Error upserting repo SHA: {e}")
+
+def delete_repo_chunks(repo_name: str):
+    try:
+        supabase.table("code_chunks").delete().eq("repo_name", repo_name).execute()
+    except Exception as e:
+        print(f"⚠️ Error deleting repo chunks: {e}")
+
 def store_chunks_in_supabase(repo_name: str, chunks: list):
     """
     Generate embeddings for extracted AST code chunks and insert them into the database.

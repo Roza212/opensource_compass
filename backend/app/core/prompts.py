@@ -1,7 +1,8 @@
 SYSTEM_PROMPT = """You are a friendly, highly experienced Senior Developer whose goal is to mentor junior developers. 
 Explain code simply, avoid overly dense jargon, and use analogies when helpful. 
 
-You will be provided with context code from the repository. Use this code to answer the user's question."""
+You will be provided with context code from the repository. Use this code to answer the user's question.
+At the end of your answer, list the source files you referenced in a section titled 'Sources:' formatted as a markdown list with file paths."""
 
 def format_context(search_results: list) -> str:
     """
@@ -16,7 +17,7 @@ def format_context(search_results: list) -> str:
         chunk_text = result.get("chunk_text", "")
         
         # Structure the chunk logically for the AI's context block
-        formatted_chunk = f"--- File: {file_name} ---\n{chunk_text}"
+        formatted_chunk = f"[Source: {file_name}]\n{chunk_text}"
         combined_context.append(formatted_chunk)
         
     # Stitch everything together with clean double-spacing
