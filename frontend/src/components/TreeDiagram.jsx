@@ -23,6 +23,7 @@ const LANG_COLORS = {
 
 const TreeDiagram = ({ repoName, onAskAI }) => {
   const svgRef = useRef();
+  const minimapCanvasRef = useRef();
   const [data, setData] = useState(null);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,8 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
   const rootRef = useRef(null);
   const gContainerRef = useRef(null);
   const zoomBehaviorRef = useRef(null);
+  const currentTransformRef = useRef(zoomIdentity);
+  const treeBoundsRef = useRef({ minX: 0, maxX: 0, minY: 0, maxY: 0 });
 
   const loadData = useCallback(async () => {
     try {
@@ -58,20 +61,132 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
     loadData();
   }, [loadData]);
 
-  // Helper for node coloring
   const getNodeColor = (d) => {
     const lang = d.data.metadata?.language?.toLowerCase();
     if (d.data.id === repoName || lang === 'root') return '#8b5cf6';
     return LANG_COLORS[lang] || LANG_COLORS['default'];
   };
 
-  // Helper for node sizing
   const getNodeRadius = (d) => {
     const loc = d.data.metadata?.loc || 0;
     if (loc < 50) return 5;
     if (loc < 200) return 7;
     if (loc < 500) return 9;
     return 11;
+  };
+
+  // --- Minimap Rendering Logic ---
+  const drawMinimap = useCallback(() => {
+    if (!minimapCanvasRef.current || !rootRef.current) return;
+    const canvas = minimapCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const nodes = rootRef.current.descendants();
+    const links = rootRef.current.links();
+    const transform = currentTransformRef.current;
+
+    const mWidth = 160;
+    const mHeight = 120;
+    const padding = 10;
+
+    // Calculate bounds of the tree nodes (note: x is vertical, y is horizontal in our layout)
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    nodes.forEach(d => {
+      minX = Math.min(minX, d.x);
+      maxX = Math.max(maxX, d.x);
+      minY = Math.min(minY, d.y);
+      maxY = Math.max(maxY, d.y);
+    });
+
+    // Store bounds for click-to-pan
+    treeBoundsRef.current = { minX, maxX, minY, maxY };
+
+    const treeW = maxY - minY;
+    const treeH = maxX - minX;
+    
+    // Scaling factor to fit tree in minimap
+    const scale = Math.min((mWidth - padding * 2) / treeW, (mHeight - padding * 2) / treeH);
+    const offsetX = padding - minY * scale;
+    const offsetY = padding - minX * scale;
+
+    ctx.clearRect(0, 0, mWidth, mHeight);
+
+    // Draw Links
+    ctx.strokeStyle = '#4b5563';
+    ctx.lineWidth = 0.5;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    links.forEach(l => {
+      ctx.moveTo(l.source.y * scale + offsetX, l.source.x * scale + offsetY);
+      ctx.lineTo(l.target.y * scale + offsetX, l.target.x * scale + offsetY);
+    });
+    ctx.stroke();
+
+    // Draw Nodes
+    ctx.globalAlpha = 1.0;
+    nodes.forEach(d => {
+      ctx.fillStyle = getNodeColor(d);
+      ctx.beginPath();
+      ctx.arc(d.y * scale + offsetX, d.x * scale + offsetY, 2, 0, 2 * Math.PI);
+      ctx.fill();
+    });
+
+    // Draw Viewport Rect
+    // The viewport coordinates in the tree space:
+    // Left edge: (0 - transform.x) / transform.k
+    // Top edge: (0 - transform.y) / transform.k
+    const svgW = svgRef.current.clientWidth;
+    const svgH = svgRef.current.clientHeight;
+
+    const vMinY = (0 - transform.x) / transform.k;
+    const vMaxY = (svgW - transform.x) / transform.k;
+    const vMinX = (0 - transform.y) / transform.k;
+    const vMaxX = (svgH - transform.y) / transform.k;
+
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+    
+    const rectX = vMinY * scale + offsetX;
+    const rectY = vMinX * scale + offsetY;
+    const rectW = (vMaxY - vMinY) * scale;
+    const rectH = (vMaxX - vMinX) * scale;
+
+    ctx.strokeRect(rectX, rectY, rectW, rectH);
+    ctx.fillRect(rectX, rectY, rectW, rectH);
+
+    // Save mapping data for click handler
+    canvas.dataset.scale = scale;
+    canvas.dataset.offsetX = offsetX;
+    canvas.dataset.offsetY = offsetY;
+  }, [selectedNode, data]);
+
+  const handleMinimapClick = (event) => {
+    if (!minimapCanvasRef.current || !zoomBehaviorRef.current) return;
+    const canvas = minimapCanvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const clickY = event.clientY - rect.top;
+
+    const scale = parseFloat(canvas.dataset.scale);
+    const offsetX = parseFloat(canvas.dataset.offsetX);
+    const offsetY = parseFloat(canvas.dataset.offsetY);
+
+    // Convert click to tree coordinates
+    const targetTreeY = (clickX - offsetX) / scale;
+    const targetTreeX = (clickY - offsetY) / scale;
+
+    const svgW = svgRef.current.clientWidth;
+    const svgH = svgRef.current.clientHeight;
+    const k = currentTransformRef.current.k;
+
+    // Pan main tree to center these coordinates
+    const tx = svgW / 2 - targetTreeY * k;
+    const ty = svgH / 2 - targetTreeX * k;
+
+    select(svgRef.current).transition().duration(500).call(
+      zoomBehaviorRef.current.transform,
+      zoomIdentity.translate(tx, ty).scale(k)
+    );
   };
 
   useEffect(() => {
@@ -81,12 +196,7 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
     const height = svgRef.current.clientHeight || 800;
     const margin = { top: 20, right: 250, bottom: 20, left: 100 };
 
-    const svg = select(svgRef.current)
-      .attr("width", "100%")
-      .attr("height", "100%")
-      .style("background", "transparent")
-      .style("cursor", "grab");
-
+    const svg = select(svgRef.current);
     svg.selectAll("*").remove();
 
     const gContainer = svg.append("g");
@@ -96,6 +206,8 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
       .scaleExtent([0.05, 3])
       .on("zoom", (event) => {
         gContainer.attr("transform", event.transform);
+        currentTransformRef.current = event.transform;
+        drawMinimap();
         svg.style("cursor", event.sourceEvent?.type === 'mousemove' ? 'grabbing' : 'grab');
       })
       .on("end", () => {
@@ -107,7 +219,6 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
 
     const root = hierarchy(data);
     rootRef.current = root;
-
     nodesMapRef.current.clear();
 
     if (root.children) {
@@ -130,44 +241,23 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
         nodesMapRef.current.set(d.data.id, d);
       });
 
-      // --- Links ---
+      // Links
       const link = gContainer.selectAll('path.link')
         .data(links, d => d.target.id);
 
       const linkEnter = link.enter().insert('path', "g")
         .attr('class', 'link')
-        .attr('d', d => {
-          const o = { x: source.x0 || 0, y: source.y0 || 0 };
-          return diagonal(o, o);
-        })
         .style("fill", "none")
         .style("stroke", "#4b5563")
-        .style("stroke-width", d => {
-            if (d.source.depth === 0) return "1.5px";
-            if (d.source.depth === 1) return "1px";
-            return "0.5px";
-        })
-        .style("opacity", d => {
-            if (d.source.depth === 0) return 0.6;
-            if (d.source.depth === 1) return 0.45;
-            return 0.3;
-        });
+        .style("stroke-width", d => d.source.depth === 0 ? "1.5px" : (d.source.depth === 1 ? "1px" : "0.5px"))
+        .style("opacity", d => d.source.depth === 0 ? 0.6 : (d.source.depth === 1 ? 0.45 : 0.3));
 
-      const linkUpdate = linkEnter.merge(link);
-
-      linkUpdate.transition()
-        .duration(450)
+      linkEnter.merge(link).transition().duration(450)
         .attr('d', d => diagonal(d.source, d.target));
 
-      link.exit().transition()
-        .duration(450)
-        .attr('d', d => {
-          const o = { x: source.x, y: source.y };
-          return diagonal(o, o);
-        })
-        .remove();
+      link.exit().remove();
 
-      // --- Nodes ---
+      // Nodes
       const node = gContainer.selectAll('g.node')
         .data(nodes, d => d.id || (d.id = Math.random().toString(36).substr(2, 9)));
 
@@ -177,70 +267,25 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
         .on('click', (event, d) => {
           setSelectedNode(d.data);
           setIsPanelOpen(true);
-          
-          if (d.children) {
-            d._children = d.children;
-            d.children = null;
-          } else if (d._children) {
-            d.children = d._children;
-            d._children = null;
-          }
+          if (d.children) { d._children = d.children; d.children = null; }
+          else if (d._children) { d.children = d._children; d._children = null; }
           update(d);
         })
         .on('mousemove', (event, d) => {
-            setTooltip({
-                show: true,
-                x: event.clientX + 12,
-                y: event.clientY,
-                content: {
-                    name: d.data.name,
-                    language: d.data.metadata?.language,
-                    loc: d.data.metadata?.loc
-                }
-            });
+            setTooltip({ show: true, x: event.clientX + 12, y: event.clientY, content: { name: d.data.name, language: d.data.metadata?.language, loc: d.data.metadata?.loc }});
         })
-        .on('mouseleave', () => {
-            setTooltip(prev => ({ ...prev, show: false }));
-        });
+        .on('mouseleave', () => setTooltip(prev => ({ ...prev, show: false })));
 
-      // Selection Ring
-      nodeEnter.append('circle')
-        .attr('class', 'highlight-ring')
-        .attr('r', d => getNodeRadius(d) + 10)
-        .style("fill", "transparent")
-        .style("stroke", getNodeColor)
-        .style("stroke-width", "2px")
-        .style("opacity", 0);
-
-      // Node Circle
-      nodeEnter.append('circle')
-        .attr('class', 'node-circle')
-        .attr('r', 1e-6)
-        .style("stroke", getNodeColor)
-        .style("stroke-width", "1.5px")
-        .style("fill", d => d._children ? getNodeColor(d) : "#0f172a");
-
-      // Node Label
-      nodeEnter.append('text')
-        .attr("dy", ".35em")
-        .attr("x", d => d.children || d._children ? -18 : 18)
-        .attr("text-anchor", d => d.children || d._children ? "end" : "start")
-        .text(d => d.data.name)
-        .style("fill", "#cbd5e1")
-        .style("font-size", "13px")
-        .style("font-family", "Inter, sans-serif")
-        .style("pointer-events", "none")
-        .style("fill-opacity", 1e-6);
+      nodeEnter.append('circle').attr('class', 'highlight-ring').style("fill", "transparent").style("stroke-width", "2px").style("opacity", 0);
+      nodeEnter.append('circle').attr('class', 'node-circle').attr('r', 1e-6).style("stroke-width", "1.5px");
+      nodeEnter.append('text').attr("dy", ".35em").style("fill", "#cbd5e1").style("font-size", "13px").style("pointer-events", "none").style("fill-opacity", 1e-6);
 
       const nodeUpdate = nodeEnter.merge(node);
-
-      nodeUpdate.transition()
-        .duration(450)
-        .attr("transform", d => `translate(${d.y},${d.x})`);
+      nodeUpdate.transition().duration(450).attr("transform", d => `translate(${d.y},${d.x})`);
 
       nodeUpdate.select('circle.node-circle')
         .attr('r', d => (selectedNode && d.data.id === selectedNode.id) ? 10 : getNodeRadius(d))
-        .style("fill", d => d._children ? getNodeColor(d) : (d.children ? "transparent" : getNodeColor(d) + '33')) // 33 for 20% opacity
+        .style("fill", d => d._children ? getNodeColor(d) : (d.children ? "transparent" : getNodeColor(d) + '33'))
         .style("stroke", getNodeColor);
 
       nodeUpdate.select('circle.highlight-ring')
@@ -249,29 +294,20 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
         .style("opacity", d => (selectedNode && d.data.id === selectedNode.id) ? 0.5 : 0);
 
       nodeUpdate.select('text')
+        .attr("x", d => d.children || d._children ? -18 : 18)
+        .attr("text-anchor", d => d.children || d._children ? "end" : "start")
+        .text(d => d.data.name)
         .style("fill-opacity", 1)
         .style("font-weight", d => (selectedNode && d.data.id === selectedNode.id) ? "700" : "400")
         .style("fill", d => (selectedNode && d.data.id === selectedNode.id) ? "#f8fafc" : "#cbd5e1");
 
-      const nodeExit = node.exit().transition()
-        .duration(450)
-        .attr("transform", d => `translate(${source.y},${source.x})`)
-        .remove();
+      node.exit().remove();
 
-      nodeExit.select('circle').attr('r', 1e-6);
-      nodeExit.select('text').style("fill-opacity", 1e-6);
+      nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+      function diagonal(s, t) { return `M ${s.y} ${s.x} C ${(s.y + t.y) / 2} ${s.x}, ${(s.y + t.y) / 2} ${t.x}, ${t.y} ${t.x}`; }
 
-      nodes.forEach(d => {
-        d.x0 = d.x;
-        d.y0 = d.y;
-      });
-
-      function diagonal(s, t) {
-        return `M ${s.y} ${s.x}
-                C ${(s.y + t.y) / 2} ${s.x},
-                  ${(s.y + t.y) / 2} ${t.x},
-                  ${t.y} ${t.x}`;
-      }
+      // Update minimap after tree update
+      drawMinimap();
     };
 
     d3UpdateRef.current = update;
@@ -280,57 +316,28 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
     const initialTransform = zoomIdentity.translate(margin.left, height / 2).scale(0.8);
     svg.call(zoomBehavior.transform, initialTransform);
 
-    window.resetTreeZoom = () => {
-      svg.transition().duration(750).call(zoomBehavior.transform, initialTransform);
-    };
-
+    window.resetTreeZoom = () => svg.transition().duration(750).call(zoomBehavior.transform, initialTransform);
     window.navigateToNode = (nodeId) => {
       const targetNode = nodesMapRef.current.get(nodeId);
       if (targetNode) {
         let curr = targetNode;
-        while (curr.parent) {
-          if (curr.parent._children) {
-            curr.parent.children = curr.parent._children;
-            curr.parent._children = null;
-          }
-          curr = curr.parent;
-        }
-        
+        while (curr.parent) { if (curr.parent._children) { curr.parent.children = curr.parent._children; curr.parent._children = null; } curr = curr.parent; }
         update(targetNode);
         setSelectedNode(targetNode.data);
         setIsPanelOpen(true);
-        
         const scale = 1.0;
         const x = -targetNode.y * scale + (isPanelOpen ? width * 0.3 : width * 0.5);
         const y = -targetNode.x * scale + height / 2;
-        
-        svg.transition().duration(750).call(
-          zoomBehavior.transform, 
-          zoomIdentity.translate(x, y).scale(scale)
-        );
+        svg.transition().duration(750).call(zoomBehavior.transform, zoomIdentity.translate(x, y).scale(scale));
       }
     };
-
-  }, [data, selectedNode]);
+  }, [data, selectedNode, drawMinimap]);
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
-
-  // Determine which languages to show in legend
-  const presentLanguages = useMemo(() => {
-    if (!stats?.languages) return [];
-    const keys = Object.keys(stats.languages);
-    // Map extensions back to friendly names or just use what we have in metadata
-    // For simplicity, I'll just check common names
-    const names = ['python', 'javascript', 'typescript', 'go', 'rust', 'markdown', 'json', 'yaml'];
-    return names.filter(name => {
-        // Find if this name exists as a language in the repo
-        return stats.languages[name] || stats.languages[name.substring(0,2)]; 
-    });
-  }, [stats]);
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-full w-full bg-[#0f172a] text-slate-400 gap-4 min-h-[600px]">
@@ -400,17 +407,18 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
             </div>
         </div>
 
-        {/* Navigation Help */}
-        <div className="absolute bottom-6 right-6 z-10 hidden md:block">
-           <div className="bg-slate-900/40 backdrop-blur-sm px-4 py-2 rounded-full border border-slate-800/50 flex items-center gap-4">
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest flex items-center gap-2">
-                <MousePointer2 size={12} className="text-blue-400" /> Hover for info
-              </span>
-              <div className="w-px h-3 bg-slate-800" />
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                Scroll to zoom
-              </span>
-           </div>
+        {/* Minimap Overview */}
+        <div className="absolute bottom-6 right-6 z-20 flex flex-col items-end gap-2">
+          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest px-1">Overview</span>
+          <div className="bg-slate-900/80 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-2xl overflow-hidden cursor-crosshair">
+            <canvas 
+              ref={minimapCanvasRef} 
+              width="160" 
+              height="120" 
+              className="rounded-lg"
+              onClick={handleMinimapClick}
+            />
+          </div>
         </div>
         
         <svg ref={svgRef} className="w-full h-full block" />

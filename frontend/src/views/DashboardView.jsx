@@ -2,8 +2,78 @@ import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, GitBranch, Loader2, Network, Home, Activity, AlertTriangle } from 'lucide-react';
 import { sendChatMessage, fetchHealthReport, generateTour, fetchSessionMessages } from '../api/client';
 import TreeDiagram from '../components/TreeDiagram';
+import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 
+function FileRow({ file, onNavigate }) {
+  const [expanded, setExpanded] = useState(false);
+  const { scores, issues, path, language } = file;
 
+  const getScoreColor = (s) => s > 70 ? '#4ade80' : s > 40 ? '#fbbf24' : '#f87171';
+
+  return (
+    <>
+      <tr 
+        onClick={() => setExpanded(!expanded)}
+        style={{ borderBottom: '1px solid #334155', cursor: 'pointer', transition: 'background-color 0.2s' }}
+        onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(51, 65, 85, 0.3)'}
+        onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+      >
+        <td style={{ padding: '1rem', color: '#f1f5f9', fontSize: '0.8rem', fontFamily: 'monospace' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            {path.split('/').pop()}
+          </div>
+        </td>
+        <td style={{ padding: '1rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase' }}>{language}</td>
+        {['complexity', 'coupling', 'size', 'docs'].map(dim => (
+          <td key={dim} style={{ padding: '1rem', textAlign: 'center' }}>
+            <span style={{ 
+              color: getScoreColor(scores[dim]), 
+              fontWeight: 700, fontSize: '0.85rem' 
+            }}>
+              {scores[dim]}
+            </span>
+          </td>
+        ))}
+      </tr>
+      {expanded && (
+        <tr style={{ backgroundColor: '#0f172a' }}>
+          <td colSpan="6" style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #334155' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h5 style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Issues & Suggestions</h5>
+                {issues && issues.length > 0 ? (
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                    {issues.map((issue, i) => (
+                      <li key={i} style={{ color: '#f1f5f9', fontSize: '0.8rem', marginBottom: '0.3rem', display: 'flex', gap: '0.5rem' }}>
+                        <span style={{ color: '#f87171' }}>•</span> {issue}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p style={{ color: '#475569', fontSize: '0.8rem', italic: 'true' }}>No critical issues detected.</p>
+                )}
+              </div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onNavigate(); }}
+                style={{ 
+                  display: 'flex', alignItems: 'center', gap: '0.4rem', 
+                  backgroundColor: '#334155', color: '#f1f5f9', border: 'none', 
+                  padding: '0.4rem 0.8rem', borderRadius: '6px', fontSize: '0.7rem', 
+                  cursor: 'pointer', transition: 'background-color 0.2s' 
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#475569'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#334155'}
+              >
+                <ExternalLink size={12} /> View in Tree
+              </button>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
 export default function DashboardView({ repoName, onReset }) {
   const [messages, setMessages] = useState([
     { role: 'ai', text: `Welcome! I've analyzed **${repoName}**. Ask me anything about its architecture, code patterns, or how specific modules work.` },
@@ -329,77 +399,107 @@ export default function DashboardView({ repoName, onReset }) {
             <TreeDiagram repoName={repoName} onAskAI={handleSend} />
           ) : (
             // Health Tab
-            <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
-              {loadingHealth ? (
-                <div className="canvas-placeholder">
-                  <Loader2 size={48} className="spinner" style={{ color: '#334155' }} />
-                  <p style={{ marginTop: '1rem' }}>Analyzing codebase health...</p>
-                </div>
-              ) : healthError ? (
-                <div className="canvas-placeholder">
-                  <AlertTriangle size={64} className="icon" style={{ color: '#f87171' }} />
-                  <p>{healthError}</p>
-                </div>
-              ) : healthData ? (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem', padding: '1.5rem', backgroundColor: '#1e293b', borderRadius: '12px', border: '1px solid #334155' }}>
-                    <div>
-                      <h3 style={{ fontSize: '1.2rem', color: '#f1f5f9', marginBottom: '0.5rem' }}>Overall Score</h3>
-                      <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Weighted average of complexity, comments, and dependencies.</p>
-                    </div>
-                    <div style={{ 
-                      fontSize: '3rem', fontWeight: 'bold', 
-                      color: healthData.overall_health > 70 ? '#4ade80' : healthData.overall_health > 40 ? '#fbbf24' : '#f87171' 
-                    }}>
-                      {healthData.overall_health}
-                    </div>
+            <div style={{ 
+              padding: '2rem', 
+              width: '100%', 
+              height: '100%', 
+              overflowY: 'auto', 
+              backgroundColor: 'var(--dark-bg)',
+              position: 'absolute',
+              top: 0, left: 0
+            }}>
+              <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+                {loadingHealth ? (
+                  <div className="canvas-placeholder">
+                    <Loader2 size={48} className="spinner" style={{ color: '#334155' }} />
+                    <p style={{ marginTop: '1rem' }}>Analyzing codebase health...</p>
                   </div>
-
-                  {healthData.top_issues && healthData.top_issues.length > 0 && (
-                    <div style={{ marginBottom: '2rem', padding: '1.5rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '12px' }}>
-                      <h3 style={{ fontSize: '1.1rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                        <AlertTriangle size={20} /> Critical Issues Found
-                      </h3>
-                      <ul style={{ listStylePosition: 'inside', color: '#fcd34d', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {healthData.top_issues.map((issue, idx) => (
-                          <li key={idx}>{issue}</li>
-                        ))}
-                      </ul>
+                ) : healthError ? (
+                  <div className="canvas-placeholder">
+                    <AlertTriangle size={64} className="icon" style={{ color: '#f87171' }} />
+                    <p>{healthError}</p>
+                  </div>
+                ) : healthData ? (
+                  <>
+                    {/* Summary Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
+                      {Object.entries(healthData.summary || {}).map(([dim, score]) => (
+                        <div key={dim} style={{ padding: '1.5rem', backgroundColor: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
+                          <h4 style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>{dim} Score</h4>
+                          <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: score > 70 ? '#4ade80' : score > 40 ? '#fbbf24' : '#f87171', marginBottom: '1rem' }}>
+                            {score}
+                          </div>
+                          <div style={{ width: '100%', height: '6px', backgroundColor: '#0f172a', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ 
+                              width: `${score}%`, height: '100%', 
+                              backgroundColor: score > 70 ? '#4ade80' : score > 40 ? '#fbbf24' : '#f87171',
+                              transition: 'width 1s ease-out'
+                            }} />
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  )}
 
-                  <div style={{ backgroundColor: '#1e293b', borderRadius: '12px', overflow: 'hidden', border: '1px solid #334155' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: '#0f172a', borderBottom: '1px solid #334155' }}>
-                          <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.85rem', textTransform: 'uppercase' }}>File Path</th>
-                          <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.85rem', textTransform: 'uppercase' }}>LOC</th>
-                          <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.85rem', textTransform: 'uppercase' }}>Complexity</th>
-                          <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.85rem', textTransform: 'uppercase' }}>Health</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {healthData.files.map((f, idx) => (
-                          <tr key={idx} style={{ borderBottom: '1px solid #334155', transition: 'background-color 0.2s' }}>
-                            <td style={{ padding: '1rem', color: '#f1f5f9', fontSize: '0.9rem', fontFamily: 'monospace' }}>{f.path}</td>
-                            <td style={{ padding: '1rem', color: '#cbd5e1', fontSize: '0.9rem' }}>{f.loc}</td>
-                            <td style={{ padding: '1rem', color: '#cbd5e1', fontSize: '0.9rem' }}>{f.complexity}</td>
-                            <td style={{ padding: '1rem' }}>
-                              <span style={{
-                                padding: '0.2rem 0.6rem', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 600,
-                                backgroundColor: f.health > 70 ? 'rgba(74, 222, 128, 0.2)' : f.health > 40 ? 'rgba(251, 191, 36, 0.2)' : 'rgba(248, 113, 113, 0.2)',
-                                color: f.health > 70 ? '#4ade80' : f.health > 40 ? '#fbbf24' : '#f87171'
-                              }}>
-                                {f.health}
-                              </span>
-                            </td>
+                    {/* Top Risks */}
+                    <h3 style={{ fontSize: '1rem', color: '#f1f5f9', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <AlertTriangle size={18} color="#fbbf24" /> Top Risks
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '3rem' }}>
+                      {(healthData.top_risks || []).map((risk, idx) => (
+                        <div 
+                          key={idx} 
+                          onClick={() => {
+                            setActiveTab('diagram');
+                            setTimeout(() => {
+                              if (window.navigateToNode) window.navigateToNode(risk.path);
+                            }, 100);
+                          }}
+                          style={{ padding: '1rem', backgroundColor: '#1e293b', borderRadius: '12px', border: '1px solid rgba(248, 113, 113, 0.2)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                          onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+                          onMouseOut={(e) => e.currentTarget.style.transform = 'none'}
+                        >
+                          <div style={{ fontSize: '0.8rem', color: '#f1f5f9', fontWeight: 600, marginBottom: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {risk.path.split('/').pop()}
+                          </div>
+                          <div style={{ 
+                            display: 'inline-block', padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', 
+                            backgroundColor: 'rgba(248, 113, 113, 0.1)', color: '#f87171', marginBottom: '0.5rem' 
+                          }}>
+                            {risk.dimension}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#94a3b8', lineHeight: '1.4' }}>{risk.reason}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* File Table */}
+                    <div style={{ backgroundColor: '#1e293b', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#0f172a', borderBottom: '1px solid #334155' }}>
+                            <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase' }}>File</th>
+                            <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase' }}>Lang</th>
+                            <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', textAlign: 'center' }}>Cmplx</th>
+                            <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', textAlign: 'center' }}>Cplng</th>
+                            <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', textAlign: 'center' }}>Size</th>
+                            <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', textAlign: 'center' }}>Docs</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : null}
+                        </thead>
+                        <tbody>
+                          {(healthData.files || []).map((f, idx) => (
+                            <FileRow key={idx} file={f} onNavigate={() => {
+                              setActiveTab('diagram');
+                              setTimeout(() => {
+                                if (window.navigateToNode) window.navigateToNode(f.path);
+                              }, 100);
+                            }} />
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : null}
+              </div>
             </div>
           )}
         </div>

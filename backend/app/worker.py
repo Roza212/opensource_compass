@@ -1,9 +1,12 @@
 import os
 import time
+import logging
 from celery import Celery
 from dotenv import load_dotenv
+from app.utils.chunker import chunk_code, LANGUAGE_MAP, FALLBACK_EXTENSIONS
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
@@ -22,80 +25,86 @@ celery_app.conf.update(
     broker_connection_retry_on_startup=True,
 )
 
-
 @celery_app.task(bind=True, name="app.worker.run_ingestion")
 def run_ingestion(self, job_id: str, github_url: str):
-    """
-    Background Celery task that performs the full clone + chunk + embed pipeline.
-    Optimized to check SHA before cloning to avoid Windows file locks.
-    """
-    from app.services.vector_store import supabase, get_repo_commit_sha, delete_repo_chunks, upsert_repo_sha, store_chunks_in_supabase
+    from app.services.vector_store import supabase, get_repo_commit_sha, delete_repo_chunks, upsert_repo_sha, store_chunks_in_supabase, safe_execute
     from app.services.git_service import clone_and_count_supported_files
-    from app.utils.chunker import chunk_file
     from git import cmd
 
-    def update_job(status: str, repo_name: str = None, error: str = None):
+    def update_job(status: str, repo_name: str = None, error: str = None, languages: dict = None):
         payload = {"status": status}
         if repo_name:
             payload["repo_name"] = repo_name
         if error:
             payload["error"] = error
-        supabase.table("jobs").update(payload).eq("id", job_id).execute()
+        
+        try:
+            query = supabase.table("jobs").update(payload).eq("id", job_id)
+            safe_execute(query)
+        except Exception as e:
+            logger.error(f"Failed to update job status in DB: {e}")
 
     try:
         update_job("running")
-        
-        # 1. Extract repo name from URL
         repo_name = github_url.rstrip("/").split("/")[-1].replace(".git", "")
         
-        # 2. Check current SHA on GitHub (without cloning)
+        # Check Cache
         try:
             g = cmd.Git()
-            # ls-remote returns "sha\trefs/heads/main"
             remote_info = g.ls_remote(github_url, "HEAD")
             current_github_sha = remote_info.split()[0]
-        except Exception as e:
-            # Fallback if ls-remote fails: proceed to clone anyway
+        except Exception:
             current_github_sha = None
 
-        # 3. Check Cache
         if current_github_sha:
             existing_sha = get_repo_commit_sha(repo_name)
             if existing_sha == current_github_sha:
-                # Already indexed and up to date
                 update_job("completed", repo_name=repo_name)
                 return
 
-        # 4. Perform Clone (if not cached or cache check failed)
+        # Perform Clone
         result = clone_and_count_supported_files(github_url)
-
         if "error" in result:
             update_job("failed", error=f"{result['error']}: {result.get('details', '')}")
             return
 
         repo_name = result["repo_name"]
         commit_sha = result["commit_sha"]
+        languages_found = result.get("languages_found", {})
         update_job("running", repo_name=repo_name)
 
-        # 5. Clear old data if SHA changed
-        existing_sha = get_repo_commit_sha(repo_name)
-        if existing_sha and existing_sha != commit_sha:
-            delete_repo_chunks(repo_name)
+        # Clear old data
+        delete_repo_chunks(repo_name)
 
-        # 6. Chunk + Embed
-        repo_path = os.path.join(".temp_repos", repo_name)
-        SUPPORTED_EXTS = {'.py', '.js', '.jsx', '.ts', '.tsx', '.go', '.java', '.rs', '.c', '.h', '.cpp', '.hpp', '.rb', '.md'}
+        # Multi-language Ingestion
+        repo_path = result["local_path"]
+        SUPPORTED_EXTS = set(LANGUAGE_MAP.keys()) | set(FALLBACK_EXTENSIONS.keys())
 
-        for root, _, files in os.walk(repo_path):
+        for root, dirs, files in os.walk(repo_path):
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['node_modules', 'vendor', '__pycache__', 'dist', 'build']]
+            
             for file in files:
-                _, ext = os.path.splitext(file)
-                if ext.lower() in SUPPORTED_EXTS:
+                ext = os.path.splitext(file)[1].lower()
+                if ext in SUPPORTED_EXTS:
                     full_path = os.path.join(root, file)
-                    chunks = chunk_file(full_path)
-                    if chunks:
-                        store_chunks_in_supabase(repo_name, chunks)
+                    
+                    try:
+                        if os.path.getsize(full_path) > 500 * 1024:
+                            continue
+                    except OSError:
+                        continue
+                        
+                    try:
+                        with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            source_code = f.read()
+                            rel_path = os.path.relpath(full_path, repo_path).replace('\\', '/')
+                            chunks = chunk_code(rel_path, source_code)
+                            if chunks:
+                                store_chunks_in_supabase(repo_name, chunks)
+                    except Exception as e:
+                        logger.warning(f"Error processing {full_path}: {e}")
 
-        # 7. Finalize
+        # Finalize
         upsert_repo_sha(repo_name, commit_sha)
         update_job("completed", repo_name=repo_name)
 

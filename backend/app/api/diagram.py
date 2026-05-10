@@ -6,6 +6,7 @@ from app.utils.errors import sanitize_error
 from app.utils.graph_builder import build_repo_graph, graph_to_tree
 from app.utils.diagram_generator import generate_mermaid_chart
 from app.core.limiter import limiter
+from app.core.config import TEMP_REPO_DIR
 
 router = APIRouter()
 
@@ -14,7 +15,7 @@ router = APIRouter()
 def get_repo_graph(request: Request, repo_name: str):
     """Returns the raw NetworkX node-link data for the repository."""
     try:
-        repo_path = os.path.join(".temp_repos", repo_name)
+        repo_path = os.path.join(TEMP_REPO_DIR, repo_name)
         if not os.path.exists(repo_path):
             raise HTTPException(status_code=404, detail="Repository not found. Please ingest it first.")
             
@@ -30,7 +31,7 @@ def get_repo_graph(request: Request, repo_name: str):
 def get_mermaid_diagram(request: Request, repo_name: str, raw: bool = False):
     """Returns a Mermaid.js syntax string for the repository diagram."""
     try:
-        repo_path = os.path.join(".temp_repos", repo_name)
+        repo_path = os.path.join(TEMP_REPO_DIR, repo_name)
         if not os.path.exists(repo_path):
             raise HTTPException(status_code=404, detail="Repository not found. Please ingest it first.")
             
@@ -55,7 +56,7 @@ def get_repo_tree(request: Request, repo_name: str):
     import graph, suitable for D3.js collapsible trees.
     """
     try:
-        repo_path = os.path.join(".temp_repos", repo_name)
+        repo_path = os.path.join(TEMP_REPO_DIR, repo_name)
         if not os.path.exists(repo_path):
             raise HTTPException(status_code=404, detail="Repository not found. Please ingest it first.")
             

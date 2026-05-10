@@ -1,135 +1,192 @@
 import os
-import tree_sitter
-import tree_sitter_python
-import tree_sitter_javascript
-import tree_sitter_typescript
-import tree_sitter_go
-import tree_sitter_java
-import tree_sitter_rust
-import tree_sitter_c
-import tree_sitter_cpp
-import tree_sitter_ruby
+import importlib
+from typing import List, Optional
+from tree_sitter import Language, Parser
+import logging
 
-# Map extensions to their respective tree-sitter languages and a friendly name
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 LANGUAGE_MAP = {
-    '.py': ('python', tree_sitter.Language(tree_sitter_python.language())),
-    '.js': ('javascript', tree_sitter.Language(tree_sitter_javascript.language())),
-    '.jsx': ('javascript', tree_sitter.Language(tree_sitter_javascript.language())),
-    '.ts': ('typescript', tree_sitter.Language(tree_sitter_typescript.language_typescript())),
-    '.tsx': ('tsx', tree_sitter.Language(tree_sitter_typescript.language_tsx())),
-    '.go': ('go', tree_sitter.Language(tree_sitter_go.language())),
-    '.java': ('java', tree_sitter.Language(tree_sitter_java.language())),
-    '.rs': ('rust', tree_sitter.Language(tree_sitter_rust.language())),
-    '.c': ('c', tree_sitter.Language(tree_sitter_c.language())),
-    '.h': ('c', tree_sitter.Language(tree_sitter_c.language())),
-    '.cpp': ('cpp', tree_sitter.Language(tree_sitter_cpp.language())),
-    '.hpp': ('cpp', tree_sitter.Language(tree_sitter_cpp.language())),
-    '.rb': ('ruby', tree_sitter.Language(tree_sitter_ruby.language())),
+    ".py":   "tree_sitter_python",
+    ".js":   "tree_sitter_javascript",
+    ".jsx":  "tree_sitter_javascript",
+    ".ts":   "tree_sitter_typescript.language_typescript",
+    ".tsx":  "tree_sitter_typescript.language_tsx",
+    ".go":   "tree_sitter_go",
+    ".rs":   "tree_sitter_rust",
+    ".java": "tree_sitter_java",
+    ".cpp":  "tree_sitter_cpp",
+    ".cc":   "tree_sitter_cpp",
+    ".c":    "tree_sitter_c",
+    ".rb":   "tree_sitter_ruby",
+    ".cs":   "tree_sitter_c_sharp",
+    ".php":  "tree_sitter_php",
 }
 
-# Generic AST node types representing chunks we want to keep together
-TARGET_NODE_TYPES = {
-    'function_definition', 'class_definition', 'function_declaration', 
-    'method_declaration', 'class_declaration', 'method_definition', 
-    'arrow_function', 'function_item', 'struct_item', 'impl_item', 
-    'class_specifier', 'struct_specifier', 'method', 'class', 
-    'func_literal', 'interface_declaration', 'type_declaration'
+FALLBACK_EXTENSIONS = {
+    ".md": "markdown", ".json": "json", ".yaml": "yaml", ".yml": "yaml", 
+    ".toml": "toml", ".env": "env", ".sh": "bash", ".bash": "bash", 
+    ".txt": "text", ".html": "html", ".css": "css", ".scss": "scss", ".sql": "sql"
 }
 
-def line_based_fallback_chunker(file_path: str, file_name: str, ext: str) -> list:
-    """Fallback chunker for unsupported files, splitting into ~50 line blocks."""
-    chunks = []
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        
-        current_chunk = []
-        for line in lines:
-            current_chunk.append(line)
-            # Break chunk at ~50 lines, preferably on an empty line
-            if len(current_chunk) >= 50 and line.strip() == "":
-                chunks.append({
-                    "file_name": file_name,
-                    "chunk_text": "".join(current_chunk),
-                    "detected_language": ext.lstrip('.') or "text"
-                })
-                current_chunk = []
-                
-        # Append remainder
-        if current_chunk and "".join(current_chunk).strip():
-            chunks.append({
-                "file_name": file_name,
-                "chunk_text": "".join(current_chunk),
-                "detected_language": ext.lstrip('.') or "text"
-            })
-    except Exception:
-        pass
-    return chunks
+class UnsupportedLanguageError(Exception):
+    pass
 
-def chunk_file(file_path: str) -> list:
-    """
-    Reads a file and extracts its functions/classes as individual text chunks.
-    Automatically detects language by extension.
-    """
-    file_name = os.path.basename(file_path)
-    _, ext = os.path.splitext(file_name)
+def get_language(file_path: str) -> Optional[Language]:
+    _, ext = os.path.splitext(file_path)
+    ext = ext.lower()
+
+    if ext in LANGUAGE_MAP:
+        module_path = LANGUAGE_MAP[ext]
+        try:
+            # Handle nested attributes like language_typescript
+            if '.' in module_path:
+                mod_name, attr_name = module_path.split('.')
+                module = importlib.import_module(mod_name)
+                # tree-sitter 0.22+ uses single arg constructor
+                return Language(getattr(module, attr_name)())
+            else:
+                module = importlib.import_module(module_path)
+                # tree-sitter 0.22+ uses module.language instead of module.language()
+                # but many grammars still have language() method
+                lang_obj = getattr(module, 'language', None)
+                if callable(lang_obj):
+                    return Language(lang_obj())
+                return Language(module.language())
+        except (ImportError, AttributeError, TypeError) as e:
+            # Fallback for older tree-sitter or different grammar structures
+            try:
+                module = importlib.import_module(module_path.split('.')[0])
+                return Language(module.language())
+            except Exception:
+                logger.warning(f"Could not load tree-sitter grammar for {ext}: {e}")
+                return None
+    
+    if ext in FALLBACK_EXTENSIONS:
+        return None
+    
+    raise UnsupportedLanguageError(f"Extension {ext} is not supported.")
+
+def chunk_code(file_path: str, source_code: str) -> List[dict]:
+    _, ext = os.path.splitext(file_path)
     ext = ext.lower()
     
-    # Check if we support tree-sitter AST parsing for this file
-    if ext not in LANGUAGE_MAP:
-        return line_based_fallback_chunker(file_path, file_name, ext)
-        
-    lang_name, ts_language = LANGUAGE_MAP[ext]
-    parser = tree_sitter.Parser(ts_language)
-    chunks = []
+    try:
+        lang = get_language(file_path)
+    except UnsupportedLanguageError:
+        logger.warning(f"Skipping unsupported file: {file_path}")
+        return []
+
+    # If it's a fallback or lang failed to load, use line-based
+    if lang is None:
+        lang_name = FALLBACK_EXTENSIONS.get(ext, ext.strip('.'))
+        return line_based_chunking(file_path, source_code, lang_name)
+
+    # AST-based chunking
+    parser = Parser()
+    # tree-sitter 0.22+
+    parser.language = lang
     
     try:
-        with open(file_path, 'rb') as f:
-            source_bytes = f.read()
+        tree = parser.parse(bytes(source_code, "utf8"))
+    except Exception as e:
+        logger.warning(f"Tree-sitter parse error for {file_path}: {e}. Falling back to line-based.")
+        lang_name = ext.strip('.')
+        return line_based_chunking(file_path, source_code, lang_name)
+
+    chunks = []
+    
+    # Language-specific node types
+    node_types = {
+        'python': ['function_definition', 'class_definition'],
+        'javascript': ['function_declaration', 'class_declaration', 'arrow_function', 'export_statement'],
+        'typescript': ['function_declaration', 'class_declaration', 'arrow_function', 'export_statement'],
+        'go': ['function_declaration', 'method_declaration', 'type_declaration'],
+        'rust': ['function_item', 'impl_item', 'struct_item', 'enum_item'],
+        'java': ['class_declaration', 'method_declaration', 'interface_declaration'],
+        'c-sharp': ['class_declaration', 'method_declaration', 'interface_declaration'],
+        'cpp': ['function_definition', 'class_specifier', 'struct_specifier'],
+        'c': ['function_definition'],
+        'ruby': ['method', 'class', 'module'],
+        'php': ['function_definition', 'class_declaration', 'method_declaration']
+    }
+    
+    # In tree-sitter 0.22+, Language doesn't have .name property easily accessible
+    # We'll map from the module path
+    target_lang = "unknown"
+    for e, m in LANGUAGE_MAP.items():
+        if e == ext:
+            target_lang = m.split('_')[-1].split('.')[0]
+            if target_lang == 'c-sharp': target_lang = 'c-sharp' # manual fix if needed
+            break
             
-        tree = parser.parse(source_bytes)
-        
-        def traverse(node):
-            if node.type in TARGET_NODE_TYPES:
-                # Extract chunk using byte indices
-                chunk_bytes = source_bytes[node.start_byte:node.end_byte]
-                chunk_text = chunk_bytes.decode('utf-8', errors='replace')
-                if chunk_text.strip():
-                    chunks.append({
-                        "file_name": file_name,
-                        "chunk_text": chunk_text,
-                        "detected_language": lang_name
-                    })
+    target_types = node_types.get(target_lang, [])
+    
+    root_node = tree.root_node
+    
+    def traverse(node):
+        if node.type in target_types:
+            start_line = node.start_point[0] + 1
+            end_line = node.end_point[0] + 1
+            content = source_code.splitlines()[node.start_point[0]:node.end_point[0]+1]
             
-            # Continue traversing children
+            chunks.append({
+                "content": "\n".join(content),
+                "start_line": start_line,
+                "end_line": end_line,
+                "chunk_type": node.type,
+                "language": target_lang,
+                "file_path": file_path
+            })
+        else:
             for child in node.children:
                 traverse(child)
-                
-        traverse(tree.root_node)
+
+    traverse(root_node)
+    
+    # If no semantic chunks found, fallback to line-based for the whole file
+    if not chunks:
+        return line_based_chunking(file_path, source_code, target_lang)
         
-        # If no targeted nodes were found, return the whole file as one chunk
-        if not chunks and source_bytes.strip():
-            chunks.append({
-                "file_name": file_name,
-                "chunk_text": source_bytes.decode('utf-8', errors='replace'),
-                "detected_language": lang_name
-            })
-            
-    except Exception:
-        # Final fallback
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            if content.strip():
-                chunks.append({
-                    "file_name": file_name,
-                    "chunk_text": content,
-                    "detected_language": lang_name
-                })
-        except Exception:
-            pass
-            
     return chunks
 
-# Keep old function name for backwards compatibility during refactor
-chunk_python_file = chunk_file
+def line_based_chunking(file_path: str, source_code: str, language: str) -> List[dict]:
+    lines = source_code.splitlines()
+    chunks = []
+    
+    # Split by double newlines into blocks, but cap at 60 lines
+    blocks = source_code.split('\n\n')
+    
+    line_idx = 0
+    for block in blocks:
+        block_lines = block.splitlines()
+        if not block_lines: 
+            line_idx += 1
+            continue
+            
+        if len(block_lines) > 60:
+            for i in range(0, len(block_lines), 60):
+                sub_lines = block_lines[i:i+60]
+                chunks.append({
+                    "content": "\n".join(sub_lines),
+                    "start_line": line_idx + 1,
+                    "end_line": line_idx + len(sub_lines),
+                    "chunk_type": "line_block",
+                    "language": language,
+                    "file_path": file_path
+                })
+                line_idx += len(sub_lines)
+        else:
+            chunks.append({
+                "content": block,
+                "start_line": line_idx + 1,
+                "end_line": line_idx + len(block_lines),
+                "chunk_type": "line_block",
+                "language": language,
+                "file_path": file_path
+            })
+            line_idx += len(block_lines) + 1
+
+    return chunks

@@ -2,8 +2,14 @@
 venv/
 __pycache__/
 *.pyc
+# Temporary Repos
+.temp_repos/
 backend/.temp_repos/
 backend/temp_repos/
+
+# Debug
+debug_analyze.py
+backend/debug_*.py
 
 # Secrets
 .env

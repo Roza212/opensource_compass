@@ -1,8 +1,11 @@
 import os
 from fastapi import APIRouter, HTTPException, Request
 from app.models.schemas import RepoRequest
-from app.services.vector_store import supabase
+from app.services.vector_store import supabase, safe_execute
 from app.core.limiter import limiter
+
+from app.utils.errors import sanitize_error
+from app.core.config import TEMP_REPO_DIR
 
 router = APIRouter()
 
@@ -28,10 +31,11 @@ def ingest_repo(request: Request, body: RepoRequest):
     repo_name = github_url.rstrip("/").split("/")[-1].replace(".git", "")
 
     try:
-        response = supabase.table("jobs").insert({
+        query = supabase.table("jobs").insert({
             "status": "queued",
             "repo_name": repo_name,
-        }).execute()
+        })
+        response = safe_execute(query)
 
         if not response.data:
             raise HTTPException(status_code=500, detail="Failed to create analysis record.")
@@ -40,12 +44,13 @@ def ingest_repo(request: Request, body: RepoRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {sanitize_error(e)}")
 
     try:
         _dispatch_task(job_id, github_url)
     except Exception as e:
-        supabase.table("jobs").update({"status": "failed", "error": str(e)}).eq("id", job_id).execute()
+        update_query = supabase.table("jobs").update({"status": "failed", "error": str(e)}).eq("id", job_id)
+        safe_execute(update_query)
         raise HTTPException(status_code=503, detail=f"Analysis pipeline unavailable: {str(e)}")
 
     return {"job_id": job_id, "status": "queued", "repo_name": repo_name}
@@ -58,11 +63,12 @@ def get_job_status(job_id: str):
     Returns: queued | running | completed | failed
     """
     try:
-        response = supabase.table("jobs").select("*").eq("id", job_id).execute()
+        query = supabase.table("jobs").select("*").eq("id", job_id)
+        response = safe_execute(query)
         if not response.data:
             raise HTTPException(status_code=404, detail="Analysis job not found.")
         return response.data[0]
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=sanitize_error(e))
