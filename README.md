@@ -1,9 +1,8 @@
 # OpenSource Compass 🧭
 
-Paste a GitHub URL. Get an interactive architecture map, AI chat, and codebase health report — in under 60 seconds.
+# OpenSource Compass 🧭
 
-![Demo](assets/demo.gif)
-> 📹 Demo: analyzing the FastAPI repository
+Paste a GitHub URL. Get an interactive architecture map, AI chat, and codebase health report.
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-opensource--compass.vercel.app-6366f1?style=for-the-badge)](https://opensource-compass.vercel.app)
 [![GitHub stars](https://img.shields.io/github/stars/Roza212/opensource_compass?style=for-the-badge)](https://github.com/Roza212/opensource_compass)
