@@ -25,12 +25,12 @@ export default function AboutView({ onBack }) {
         <ArrowLeft size={20} /> Back
       </button>
 
-      <Compass size={48} strokeWidth={1.5} style={{ color: '#8b5cf6', marginBottom: '1rem', position: 'relative', zIndex: 1 }} />
+      <Compass size={48} strokeWidth={1.5} style={{ color: 'var(--neon-purple)', marginBottom: '1rem', position: 'relative', zIndex: 1 }} />
       <h1 className="landing-logo" style={{ fontSize: '2.5rem' }}>About OpenSource Compass</h1>
       
       <div style={{ maxWidth: '800px', width: '100%', position: 'relative', zIndex: 1, marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '4rem' }}>
         
-        <section style={{ background: 'var(--dark-surface)', padding: '2rem', borderRadius: '16px', border: '1px solid var(--dark-border)' }}>
+        <section style={{ background: 'var(--bg-surface)', padding: '2rem', borderRadius: '16px', border: '1px solid var(--border-main)' }}>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Compass className="icon" style={{ color: 'var(--neon-blue)' }} size={24} /> The Vision
           </h2>
@@ -39,26 +39,26 @@ export default function AboutView({ onBack }) {
           </p>
         </section>
 
-        <section style={{ background: 'var(--dark-surface)', padding: '2rem', borderRadius: '16px', border: '1px solid var(--dark-border)' }}>
+        <section style={{ background: 'var(--bg-surface)', padding: '2rem', borderRadius: '16px', border: '1px solid var(--border-main)' }}>
           <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Cpu className="icon" style={{ color: 'var(--neon-purple)' }} size={24} /> How It Works
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginTop: '1.5rem' }}>
-            <div style={{ background: 'var(--dark-bg)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--dark-border)', transition: 'transform 0.3s ease, box-shadow 0.3s ease' }} className="about-card">
+            <div style={{ background: 'var(--bg-main)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-main)', transition: 'transform 0.3s ease, box-shadow 0.3s ease' }} className="about-card">
               <Network size={32} style={{ color: 'var(--neon-cyan)', marginBottom: '1rem' }} />
               <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>1. Ingestion</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.5' }}>
                 We perform a shallow clone of the target repository and use Tree-sitter to semantically parse and chunk the codebase by logical boundaries (functions, classes).
               </p>
             </div>
-            <div style={{ background: 'var(--dark-bg)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--dark-border)', transition: 'transform 0.3s ease, box-shadow 0.3s ease' }} className="about-card">
+            <div style={{ background: 'var(--bg-main)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-main)', transition: 'transform 0.3s ease, box-shadow 0.3s ease' }} className="about-card">
               <Database size={32} style={{ color: 'var(--neon-blue)', marginBottom: '1rem' }} />
               <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>2. Vector Embedding</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.5' }}>
                 Code chunks are passed to an AI model to generate high-dimensional vectors, which are then stored in our Supabase pgvector database for rapid similarity search.
               </p>
             </div>
-            <div style={{ background: 'var(--dark-bg)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--dark-border)', transition: 'transform 0.3s ease, box-shadow 0.3s ease' }} className="about-card">
+            <div style={{ background: 'var(--bg-main)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-main)', transition: 'transform 0.3s ease, box-shadow 0.3s ease' }} className="about-card">
               <Cpu size={32} style={{ color: 'var(--neon-purple)', marginBottom: '1rem' }} />
               <h3 style={{ fontSize: '1.1rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>3. AI Mentorship</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.5' }}>

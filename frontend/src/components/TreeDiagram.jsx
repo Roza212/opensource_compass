@@ -63,7 +63,7 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
 
   const getNodeColor = (d) => {
     const lang = d.data.metadata?.language?.toLowerCase();
-    if (d.data.id === repoName || lang === 'root') return '#8b5cf6';
+    if (d.data.id === repoName || lang === 'root') return 'var(--neon-purple)';
     return LANG_COLORS[lang] || LANG_COLORS['default'];
   };
 
@@ -111,7 +111,7 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
     ctx.clearRect(0, 0, mWidth, mHeight);
 
     // Draw Links
-    ctx.strokeStyle = '#4b5563';
+    ctx.strokeStyle = 'var(--border-light)';
     ctx.lineWidth = 0.5;
     ctx.globalAlpha = 0.3;
     ctx.beginPath();
@@ -248,7 +248,7 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
       const linkEnter = link.enter().insert('path', "g")
         .attr('class', 'link')
         .style("fill", "none")
-        .style("stroke", "#4b5563")
+        .style("stroke", "var(--border-light)")
         .style("stroke-width", d => d.source.depth === 0 ? "1.5px" : (d.source.depth === 1 ? "1px" : "0.5px"))
         .style("opacity", d => d.source.depth === 0 ? 0.6 : (d.source.depth === 1 ? 0.45 : 0.3));
 
@@ -278,7 +278,7 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
 
       nodeEnter.append('circle').attr('class', 'highlight-ring').style("fill", "transparent").style("stroke-width", "2px").style("opacity", 0);
       nodeEnter.append('circle').attr('class', 'node-circle').attr('r', 1e-6).style("stroke-width", "1.5px");
-      nodeEnter.append('text').attr("dy", ".35em").style("fill", "#cbd5e1").style("font-size", "13px").style("pointer-events", "none").style("fill-opacity", 1e-6);
+      nodeEnter.append('text').attr("dy", ".35em").style("fill", "var(--text-muted)").style("font-size", "13px").style("pointer-events", "none").style("fill-opacity", 1e-6);
 
       const nodeUpdate = nodeEnter.merge(node);
       nodeUpdate.transition().duration(450).attr("transform", d => `translate(${d.y},${d.x})`);
@@ -299,7 +299,7 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
         .text(d => d.data.name)
         .style("fill-opacity", 1)
         .style("font-weight", d => (selectedNode && d.data.id === selectedNode.id) ? "700" : "400")
-        .style("fill", d => (selectedNode && d.data.id === selectedNode.id) ? "#f8fafc" : "#cbd5e1");
+        .style("fill", d => (selectedNode && d.data.id === selectedNode.id) ? "#f8fafc" : "var(--text-muted)");
 
       node.exit().remove();
 
@@ -340,14 +340,14 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
   };
 
   if (loading) return (
-    <div className="flex flex-col items-center justify-center h-full w-full bg-[#0f172a] text-slate-400 gap-4 min-h-[600px]">
+    <div className="flex flex-col items-center justify-center h-full w-full bg-[var(--bg-main)] text-slate-400 gap-4 min-h-[600px]">
       <Loader2 className="animate-spin text-purple-500" size={40} />
       <p className="text-sm font-medium animate-pulse">Mapping codebase architecture...</p>
     </div>
   );
 
   if (error) return (
-    <div className="flex flex-col items-center justify-center h-full w-full bg-[#0f172a] text-red-400 gap-2 px-8 text-center min-h-[600px]">
+    <div className="flex flex-col items-center justify-center h-full w-full bg-[var(--bg-main)] text-red-400 gap-2 px-8 text-center min-h-[600px]">
       <p className="font-semibold text-lg">Visualization failed</p>
       <p className="text-sm opacity-70 max-w-md">{error}</p>
       <button onClick={loadData} className="mt-4 px-4 py-2 bg-slate-800 rounded-lg text-xs hover:bg-slate-700 transition-colors">Retry Analysis</button>
@@ -355,7 +355,7 @@ const TreeDiagram = ({ repoName, onAskAI }) => {
   );
 
   return (
-    <div className="flex w-full h-full min-h-[600px] bg-[#0b1120] relative">
+    <div className="flex w-full h-full min-h-[600px] bg-[var(--bg-main)] relative">
       {/* Tooltip */}
       {tooltip.show && tooltip.content && (
         <div 

@@ -14,17 +14,17 @@ function FileRow({ file, onNavigate }) {
     <>
       <tr 
         onClick={() => setExpanded(!expanded)}
-        style={{ borderBottom: '1px solid #334155', cursor: 'pointer', transition: 'background-color 0.2s' }}
+        style={{ borderBottom: '1px solid var(--border-main)', cursor: 'pointer', transition: 'background-color 0.2s' }}
         onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(51, 65, 85, 0.3)'}
         onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
       >
-        <td style={{ padding: '1rem', color: '#f1f5f9', fontSize: '0.8rem', fontFamily: 'monospace' }}>
+        <td style={{ padding: '1rem', color: 'var(--text-primary)', fontSize: '0.8rem', fontFamily: 'monospace' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             {path.split('/').pop()}
           </div>
         </td>
-        <td style={{ padding: '1rem', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase' }}>{language}</td>
+        <td style={{ padding: '1rem', color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase' }}>{language}</td>
         {['complexity', 'coupling', 'size', 'docs'].map(dim => (
           <td key={dim} style={{ padding: '1rem', textAlign: 'center' }}>
             <span style={{ 
@@ -37,33 +37,33 @@ function FileRow({ file, onNavigate }) {
         ))}
       </tr>
       {expanded && (
-        <tr style={{ backgroundColor: '#0f172a' }}>
-          <td colSpan="6" style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #334155' }}>
+        <tr style={{ backgroundColor: 'var(--bg-main)' }}>
+          <td colSpan="6" style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-main)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <h5 style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Issues & Suggestions</h5>
+                <h5 style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Issues & Suggestions</h5>
                 {issues && issues.length > 0 ? (
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                     {issues.map((issue, i) => (
-                      <li key={i} style={{ color: '#f1f5f9', fontSize: '0.8rem', marginBottom: '0.3rem', display: 'flex', gap: '0.5rem' }}>
+                      <li key={i} style={{ color: 'var(--text-primary)', fontSize: '0.8rem', marginBottom: '0.3rem', display: 'flex', gap: '0.5rem' }}>
                         <span style={{ color: '#f87171' }}>•</span> {issue}
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p style={{ color: '#475569', fontSize: '0.8rem', italic: 'true' }}>No critical issues detected.</p>
+                  <p style={{ color: 'var(--border-light)', fontSize: '0.8rem', italic: 'true' }}>No critical issues detected.</p>
                 )}
               </div>
               <button 
                 onClick={(e) => { e.stopPropagation(); onNavigate(); }}
                 style={{ 
                   display: 'flex', alignItems: 'center', gap: '0.4rem', 
-                  backgroundColor: '#334155', color: '#f1f5f9', border: 'none', 
+                  backgroundColor: 'var(--border-main)', color: 'var(--text-primary)', border: 'none', 
                   padding: '0.4rem 0.8rem', borderRadius: '6px', fontSize: '0.7rem', 
                   cursor: 'pointer', transition: 'background-color 0.2s' 
                 }}
-                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#475569'}
-                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#334155'}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--border-light)'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--border-main)'}
               >
                 <ExternalLink size={12} /> View in Tree
               </button>
@@ -201,9 +201,9 @@ export default function DashboardView({ repoName, onReset }) {
                 setMessages([{ role: 'ai', text: `Welcome to the ${repoName} codebase! I'm your AI Mentor.` }]);
                 setShowTourPanel(true);
               }}
-              style={{ background: 'none', border: '1px solid #334155', color: '#94a3b8', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', transition: 'all 0.2s' }}
-              onMouseOver={(e) => { e.currentTarget.style.color = '#f1f5f9'; e.currentTarget.style.borderColor = '#475569'; }}
-              onMouseOut={(e) => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.borderColor = '#334155'; }}
+              style={{ background: 'none', border: '1px solid var(--border-main)', color: 'var(--text-secondary)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer', transition: 'all 0.2s' }}
+              onMouseOver={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.borderColor = 'var(--border-light)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.borderColor = 'var(--border-main)'; }}
             >
               New Chat
             </button>
@@ -212,9 +212,9 @@ export default function DashboardView({ repoName, onReset }) {
 
         <div className="chat-messages">
           {showTourPanel && !tourSteps && (
-            <div style={{ padding: '1.5rem', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', marginBottom: '1rem', textAlign: 'center' }}>
-              <h3 style={{ color: '#f1f5f9', marginBottom: '0.5rem' }}>Welcome to the codebase!</h3>
-              <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Would you like a guided tour of the most critical files?</p>
+            <div style={{ padding: '1.5rem', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border-main)', borderRadius: '12px', marginBottom: '1rem', textAlign: 'center' }}>
+              <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Welcome to the codebase!</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Would you like a guided tour of the most critical files?</p>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                 <button 
                   onClick={async () => {
@@ -231,7 +231,7 @@ export default function DashboardView({ repoName, onReset }) {
                     }
                   }}
                   disabled={loadingTour}
-                  style={{ padding: '0.5rem 1rem', borderRadius: '6px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  style={{ padding: '0.5rem 1rem', borderRadius: '6px', backgroundColor: 'var(--neon-purple)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                 >
                   {loadingTour ? <Loader2 size={16} className="spinner" /> : null}
                   Start Tour
@@ -239,7 +239,7 @@ export default function DashboardView({ repoName, onReset }) {
                 <button 
                   onClick={() => setShowTourPanel(false)}
                   disabled={loadingTour}
-                  style={{ padding: '0.5rem 1rem', borderRadius: '6px', backgroundColor: 'transparent', color: '#94a3b8', border: '1px solid #475569', cursor: 'pointer' }}
+                  style={{ padding: '0.5rem 1rem', borderRadius: '6px', backgroundColor: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-light)', cursor: 'pointer' }}
                 >
                   Skip
                 </button>
@@ -248,28 +248,28 @@ export default function DashboardView({ repoName, onReset }) {
           )}
 
           {showTourPanel && tourSteps && tourSteps.length > 0 && (
-            <div style={{ padding: '1.5rem', backgroundColor: '#1e293b', border: '1px solid #8b5cf6', borderRadius: '12px', marginBottom: '1rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+            <div style={{ padding: '1.5rem', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--neon-purple)', borderRadius: '12px', marginBottom: '1rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <span style={{ fontSize: '0.8rem', color: '#8b5cf6', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Step {currentTourStep + 1} of {tourSteps.length}</span>
-                <button onClick={() => setShowTourPanel(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.8rem' }}>✕ Close</button>
+                <span style={{ fontSize: '0.8rem', color: 'var(--neon-purple)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Step {currentTourStep + 1} of {tourSteps.length}</span>
+                <button onClick={() => setShowTourPanel(false)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem' }}>✕ Close</button>
               </div>
-              <h3 style={{ color: '#f1f5f9', marginBottom: '0.5rem', fontSize: '1.1rem' }}>{tourSteps[currentTourStep].title}</h3>
-              <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem', lineHeight: '1.5' }}>{tourSteps[currentTourStep].explanation}</p>
-              <div style={{ backgroundColor: '#0f172a', padding: '0.5rem 0.8rem', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'monospace', color: '#93c5fd', marginBottom: '1.5rem', border: '1px solid #334155' }}>
+              <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem', fontSize: '1.1rem' }}>{tourSteps[currentTourStep].title}</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem', lineHeight: '1.5' }}>{tourSteps[currentTourStep].explanation}</p>
+              <div style={{ backgroundColor: 'var(--bg-main)', padding: '0.5rem 0.8rem', borderRadius: '6px', fontSize: '0.8rem', fontFamily: 'monospace', color: '#93c5fd', marginBottom: '1.5rem', border: '1px solid var(--border-main)' }}>
                 {tourSteps[currentTourStep].key_file}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <button 
                   onClick={() => setCurrentTourStep(p => Math.max(0, p - 1))}
                   disabled={currentTourStep === 0}
-                  style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', backgroundColor: currentTourStep === 0 ? 'transparent' : '#334155', color: currentTourStep === 0 ? '#475569' : '#f1f5f9', border: 'none', cursor: currentTourStep === 0 ? 'default' : 'pointer', fontWeight: 500, fontSize: '0.9rem' }}
+                  style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', backgroundColor: currentTourStep === 0 ? 'transparent' : 'var(--border-main)', color: currentTourStep === 0 ? 'var(--border-light)' : 'var(--text-primary)', border: 'none', cursor: currentTourStep === 0 ? 'default' : 'pointer', fontWeight: 500, fontSize: '0.9rem' }}
                 >
                   Previous
                 </button>
                 {currentTourStep < tourSteps.length - 1 ? (
                   <button 
                     onClick={() => setCurrentTourStep(p => Math.min(tourSteps.length - 1, p + 1))}
-                    style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 500, fontSize: '0.9rem' }}
+                    style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', backgroundColor: 'var(--neon-purple)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 500, fontSize: '0.9rem' }}
                   >
                     Next
                   </button>
@@ -297,15 +297,15 @@ export default function DashboardView({ repoName, onReset }) {
                       style={{ 
                         fontSize: '0.75rem', 
                         padding: '0.2rem 0.5rem', 
-                        backgroundColor: '#334155', 
+                        backgroundColor: 'var(--border-main)', 
                         borderRadius: '4px',
                         cursor: 'pointer',
                         color: '#93c5fd',
-                        border: '1px solid #475569',
+                        border: '1px solid var(--border-light)',
                         transition: 'border-color 0.2s'
                       }}
                       onMouseOver={(e) => e.currentTarget.style.borderColor = '#93c5fd'}
-                      onMouseOut={(e) => e.currentTarget.style.borderColor = '#475569'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border-light)'}
                     >
                       {src}
                     </span>
@@ -343,14 +343,14 @@ export default function DashboardView({ repoName, onReset }) {
       <div className="canvas-panel">
         <div className="canvas-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ display: 'flex', backgroundColor: '#0f172a', padding: '4px', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', backgroundColor: 'var(--bg-main)', padding: '4px', borderRadius: '8px' }}>
               <button 
                 onClick={() => setActiveTab('diagram')}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '0.5rem',
                   padding: '0.4rem 0.8rem', borderRadius: '6px',
                   backgroundColor: activeTab === 'diagram' ? '#3b82f6' : 'transparent',
-                  color: activeTab === 'diagram' ? '#ffffff' : '#94a3b8',
+                  color: activeTab === 'diagram' ? '#ffffff' : 'var(--text-secondary)',
                   border: 'none', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500,
                   transition: 'all 0.2s'
                 }}
@@ -362,8 +362,8 @@ export default function DashboardView({ repoName, onReset }) {
                 style={{
                   display: 'flex', alignItems: 'center', gap: '0.5rem',
                   padding: '0.4rem 0.8rem', borderRadius: '6px',
-                  backgroundColor: activeTab === 'health' ? '#8b5cf6' : 'transparent',
-                  color: activeTab === 'health' ? '#ffffff' : '#94a3b8',
+                  backgroundColor: activeTab === 'health' ? 'var(--neon-purple)' : 'transparent',
+                  color: activeTab === 'health' ? '#ffffff' : 'var(--text-secondary)',
                   border: 'none', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500,
                   transition: 'all 0.2s'
                 }}
@@ -381,13 +381,13 @@ export default function DashboardView({ repoName, onReset }) {
             style={{
               display: 'flex', alignItems: 'center', gap: '0.5rem',
               padding: '0.4rem 0.8rem', borderRadius: '6px',
-              backgroundColor: '#1e293b', color: '#f1f5f9',
-              border: '1px solid #334155', cursor: 'pointer',
+              backgroundColor: 'var(--bg-surface)', color: 'var(--text-primary)',
+              border: '1px solid var(--border-main)', cursor: 'pointer',
               fontSize: '0.875rem', transition: 'background-color 0.2s',
               fontWeight: 500
             }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#334155'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#1e293b'}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--border-main)'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-surface)'}
           >
             <Home size={16} />
             New Repository
@@ -411,7 +411,7 @@ export default function DashboardView({ repoName, onReset }) {
               <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
                 {loadingHealth ? (
                   <div className="canvas-placeholder">
-                    <Loader2 size={48} className="spinner" style={{ color: '#334155' }} />
+                    <Loader2 size={48} className="spinner" style={{ color: 'var(--border-main)' }} />
                     <p style={{ marginTop: '1rem' }}>Analyzing codebase health...</p>
                   </div>
                 ) : healthError ? (
@@ -424,12 +424,12 @@ export default function DashboardView({ repoName, onReset }) {
                     {/* Summary Cards */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
                       {Object.entries(healthData.summary || {}).map(([dim, score]) => (
-                        <div key={dim} style={{ padding: '1.5rem', backgroundColor: '#1e293b', borderRadius: '16px', border: '1px solid #334155' }}>
-                          <h4 style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>{dim} Score</h4>
+                        <div key={dim} style={{ padding: '1.5rem', backgroundColor: 'var(--bg-surface)', borderRadius: '16px', border: '1px solid var(--border-main)' }}>
+                          <h4 style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.75rem', letterSpacing: '0.05em' }}>{dim} Score</h4>
                           <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: score > 70 ? '#4ade80' : score > 40 ? '#fbbf24' : '#f87171', marginBottom: '1rem' }}>
                             {score}
                           </div>
-                          <div style={{ width: '100%', height: '6px', backgroundColor: '#0f172a', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--bg-main)', borderRadius: '3px', overflow: 'hidden' }}>
                             <div style={{ 
                               width: `${score}%`, height: '100%', 
                               backgroundColor: score > 70 ? '#4ade80' : score > 40 ? '#fbbf24' : '#f87171',
@@ -441,7 +441,7 @@ export default function DashboardView({ repoName, onReset }) {
                     </div>
 
                     {/* Top Risks */}
-                    <h3 style={{ fontSize: '1rem', color: '#f1f5f9', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <h3 style={{ fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <AlertTriangle size={18} color="#fbbf24" /> Top Risks
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '3rem' }}>
@@ -454,11 +454,11 @@ export default function DashboardView({ repoName, onReset }) {
                               if (window.navigateToNode) window.navigateToNode(risk.path);
                             }, 100);
                           }}
-                          style={{ padding: '1rem', backgroundColor: '#1e293b', borderRadius: '12px', border: '1px solid rgba(248, 113, 113, 0.2)', cursor: 'pointer', transition: 'transform 0.2s' }}
+                          style={{ padding: '1rem', backgroundColor: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid rgba(248, 113, 113, 0.2)', cursor: 'pointer', transition: 'transform 0.2s' }}
                           onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
                           onMouseOut={(e) => e.currentTarget.style.transform = 'none'}
                         >
-                          <div style={{ fontSize: '0.8rem', color: '#f1f5f9', fontWeight: 600, marginBottom: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {risk.path.split('/').pop()}
                           </div>
                           <div style={{ 
@@ -467,22 +467,22 @@ export default function DashboardView({ repoName, onReset }) {
                           }}>
                             {risk.dimension}
                           </div>
-                          <div style={{ fontSize: '0.75rem', color: '#94a3b8', lineHeight: '1.4' }}>{risk.reason}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>{risk.reason}</div>
                         </div>
                       ))}
                     </div>
 
                     {/* File Table */}
-                    <div style={{ backgroundColor: '#1e293b', borderRadius: '16px', overflow: 'hidden', border: '1px solid #334155' }}>
+                    <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--border-main)' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                         <thead>
-                          <tr style={{ backgroundColor: '#0f172a', borderBottom: '1px solid #334155' }}>
-                            <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase' }}>File</th>
-                            <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase' }}>Lang</th>
-                            <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', textAlign: 'center' }}>Cmplx</th>
-                            <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', textAlign: 'center' }}>Cplng</th>
-                            <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', textAlign: 'center' }}>Size</th>
-                            <th style={{ padding: '1rem', color: '#94a3b8', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', textAlign: 'center' }}>Docs</th>
+                          <tr style={{ backgroundColor: 'var(--bg-main)', borderBottom: '1px solid var(--border-main)' }}>
+                            <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase' }}>File</th>
+                            <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase' }}>Lang</th>
+                            <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', textAlign: 'center' }}>Cmplx</th>
+                            <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', textAlign: 'center' }}>Cplng</th>
+                            <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', textAlign: 'center' }}>Size</th>
+                            <th style={{ padding: '1rem', color: 'var(--text-secondary)', fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', textAlign: 'center' }}>Docs</th>
                           </tr>
                         </thead>
                         <tbody>

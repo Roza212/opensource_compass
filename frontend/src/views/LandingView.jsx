@@ -125,7 +125,7 @@ export default function LandingView({ onAnalyze, onNavigateAbout }) {
       >
         About
       </button>
-      <Compass size={56} strokeWidth={1.5} style={{ color: '#8b5cf6', marginBottom: '1rem', position: 'relative', zIndex: 1 }} />
+      <Compass size={56} strokeWidth={1.5} style={{ color: 'var(--neon-purple)', marginBottom: '1rem', position: 'relative', zIndex: 1 }} />
       <h1 className="landing-logo">OpenSource Compass</h1>
       <p className="landing-subtitle">
         Your AI-powered mentor for exploring and understanding any open-source codebase.
@@ -148,8 +148,8 @@ export default function LandingView({ onAnalyze, onNavigateAbout }) {
           style={{
             position: 'relative',
             overflow: 'hidden',
-            background: loading ? '#1e293b' : undefined,
-            border: loading ? '1px solid #334155' : 'none'
+            background: loading ? 'var(--bg-surface)' : undefined,
+            border: loading ? '1px solid var(--border-main)' : 'none'
           }}
         >
           {loading && (
