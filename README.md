@@ -76,7 +76,7 @@ opensource_compass/
 ### 1. Prerequisites
 - Python 3.10+
 - Node.js 18+
-- **Redis Server** (Installed natively or via Docker)
+- **Redis Server**
 - **Supabase Account** with pgvector enabled
 
 ### 2. Environment Configuration
