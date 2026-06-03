@@ -23,14 +23,14 @@
   --bg-surface: #ffffff;
   --bg-card: #ffffff;
   
-  /* Borders with soft depth */
-  --border-main: #e5e7eb;
+  /* Borders with soft depth (darker for visible outline) */
+  --border-main: #9ca3af;
   --border-light: #d1d5db;
   
-  /* Highly readable typography */
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-muted: #6b7280;
+  /* Highly readable typography (Darker) */
+  --text-primary: #000000;
+  --text-secondary: #1f2937;
+  --text-muted: #4b5563;
   
   /* Deepened neon accents for AAA contrast on light backgrounds */
   --neon-blue: #2563eb; 
