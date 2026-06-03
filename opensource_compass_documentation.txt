@@ -4,7 +4,7 @@
 
 1. EXECUTIVE SUMMARY
 --------------------------------------------------------------------------------
-OpenSource Compass is an advanced, enterprise-grade AI mentorship application designed to help developers seamlessly explore, understand, and learn from open-source Python codebases. By providing a GitHub URL, the application autonomously clones the repository, parses the entire codebase using Abstract Syntax Trees (AST), generates a dynamic visual dependency flowchart, and stores semantic code embeddings in a vector database. Users then interact with an AI Mentor (powered by Google Gemini 3 Flash Preview) that possesses full contextual knowledge of the ingested codebase using Retrieval-Augmented Generation (RAG).
+OpenSource Compass is an advanced, enterprise-grade AI mentorship application designed to help developers seamlessly explore, understand, and learn from open-source codebases (supporting 14+ languages including Python, JS, TS, Go, Rust, Java, and C++). By providing a GitHub URL, the application autonomously clones the repository, parses the codebase using multi-language Abstract Syntax Trees (AST), generates a dynamic visual dependency flowchart, and stores semantic code embeddings in a vector database. Users then interact with an AI Mentor (powered by Google Gemini) that possesses full contextual knowledge of the ingested codebase using Retrieval-Augmented Generation (RAG). The system also features a multi-dimensional health engine evaluating complexity, coupling, size, and understandability.
 
 2. THE PIPELINE: END-TO-END DATA FLOW
 --------------------------------------------------------------------------------
@@ -12,14 +12,15 @@ The system operates on a highly optimized, dual-phase pipeline: The "Ingestion P
 
 A. THE INGESTION PHASE (Triggered by the Landing Page)
 1. User Input: The user pastes a GitHub URL into the React frontend and clicks "Analyze". An estimated logarithmic progress bar begins filling the button.
-2. Shallow Clone (/ingest): The FastAPI backend receives the URL and uses `GitPython` to perform a "shallow clone" (depth=1). This downloads only the latest snapshot of the code into a hidden local `.temp_repos/` directory, preventing massive history downloads and taking only seconds.
-3. AST Parsing & Chunking (/embed): 
-   - The backend recursively crawls `.temp_repos/` for all `.py` files.
+2. Shallow Clone & Caching (/ingest): The FastAPI backend receives the URL and uses `GitPython` to perform a "shallow clone" (depth=1). This downloads only the latest snapshot of the code into a hidden local `.temp_repos/` directory. It leverages commit SHA-aware caching to skip redundant cloning if the repository is already cached and up-to-date.
+3. Background Task Dispatch: The heavy lifting is delegated to native FastAPI `BackgroundTasks`, allowing the API to respond immediately with a job ID for the frontend to poll, ensuring non-blocking operations.
+4. AST Parsing & Chunking (/embed): 
+   - The backend recursively crawls `.temp_repos/` for all supported source files across 14+ languages.
    - It feeds each file into `tree-sitter` (an Abstract Syntax Tree parser) which intelligently slices the code into logical semantic "chunks" (e.g., keeping entire functions and classes intact rather than cutting blindly by line numbers).
-4. Vector Embedding:
+5. Vector Embedding:
    - CPU Vectorized Batching: The backend extracts all chunk strings for a given file and passes them as a batch list to the `SentenceTransformers` AI model (`all-MiniLM-L6-v2`). The model utilizes parallel CPU processing to instantly convert the text strings into 384-dimensional mathematical arrays (vector embeddings).
    - Network Batching: The backend packages all the chunks and their vectors into a single JSON payload and makes exactly one HTTP POST request to the Supabase Postgres Database, inserting the batch into the `code_chunks` table.
-5. Transition: The frontend progress bar snaps to 100%, and the user is transitioned to the Dashboard View.
+6. Transition: The frontend progress bar snaps to 100%, and the user is transitioned to the Dashboard View.
 
 B. THE INTERACTIVE PHASE (The Dashboard)
 1. Graph Visualization (/diagram):
@@ -48,10 +49,11 @@ B. THE INTERACTIVE PHASE (The Dashboard)
   - FastAPI (High-performance asynchronous Python web framework)
   - Uvicorn (ASGI web server using `watchfiles` to ignore `.temp_repos/` and prevent crash-loops)
   - Pydantic (For strict data shape validation in `models/schemas.py`)
+  - SlowAPI (For robust rate limiting using an optional Redis backend or in-memory fallback)
 
 - PARSING & DATA PROCESSING:
   - GitPython (For autonomous repository cloning)
-  - tree-sitter & tree-sitter-python (For Abstract Syntax Tree parsing and chunking)
+  - tree-sitter & ecosystem (Multi-language Abstract Syntax Tree parsing for intelligent semantic chunking)
   - NetworkX (For building and traversing directed dependency graphs)
 
 - AI & MACHINE LEARNING:
@@ -114,4 +116,5 @@ opensource_compass/
 --------------------------------------------------------------------------------
 - Error Sanitization: The `utils/errors.py` middleware wraps FastAPI endpoints. If an external service like Supabase goes down, it catches massive raw HTML traceback errors (like Cloudflare 521s) and converts them into single-sentence, user-friendly UI warnings.
 - UI Progress States: The frontend utilizes robust `disabled` states, loading spinners, and an internal logarithmic `setInterval` progress bar. This ensures users cannot spam endpoints and always have visual feedback during heavy background tasks.
-- Fallback Nodes: If a user ingests a repository that contains zero python files (or has no inter-file dependencies), the backend `diagram_generator` automatically returns a fallback node `[No Python Architecture Detected]` to prevent the Mermaid.js parser from fatally crashing the React UI.
+- Fallback Nodes: If a user ingests a repository that contains zero supported files (or has no inter-file dependencies), the backend `diagram_generator` automatically returns a fallback node `[No Architecture Detected]` to prevent the Mermaid.js parser from fatally crashing the React UI.
+- Rate Limiting & Overload Protection: API endpoints are guarded by `SlowAPI` with an optional Redis backend, protecting against spam while ensuring the system gracefully handles high load using in-memory fallbacks if Redis is unavailable.
