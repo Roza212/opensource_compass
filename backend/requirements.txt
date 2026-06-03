@@ -24,6 +24,5 @@ google-genai
 watchfiles
 pytest
 radon
-celery[redis]
 redis
 slowapi

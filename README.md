@@ -29,7 +29,7 @@
 - **Cross-Navigation**: Seamlessly jump from a health issue directly to the file's location in the architecture tree.
 
 ### ⚙️ High-Performance Engine
-- **Async Ingestion Pipeline**: Powered by **Celery & Redis** for non-blocking cloning and embedding.
+- **Async Ingestion Pipeline**: Powered by **FastAPI Background Tasks** for non-blocking cloning and embedding.
 - **Multi-Language AST Support**: Advanced parsing for 14+ languages (Python, JS, TS, Go, Rust, Java, C++, etc.).
 - **Intelligent Caching**: Commit SHA-aware caching for analysis results to ensure instant sub-second responses.
 
@@ -42,7 +42,7 @@
 | **Frontend** | React 19, Vite, Tailwind CSS v4, D3.js v7, Lucide Icons |
 | **Backend API** | FastAPI, Uvicorn, SlowAPI (Rate Limiting) |
 | **AI/ML** | Google Gemini 1.5 Pro, SentenceTransformers (MiniLM-L6) |
-| **Task Queue** | Celery, Redis |
+| **Task Queue** | FastAPI Background Tasks |
 | **Database** | Supabase Postgres (pgvector) |
 | **Graph Logic** | NetworkX (Dependency Analysis) |
 
@@ -59,7 +59,7 @@ opensource_compass/
 │   │   ├── api/                 # Routers (Chat, Ingest, Diagram, Analyze)
 │   │   ├── services/            # Logic (VectorStore, GitService, ChatEngine)
 │   │   ├── utils/               # Helpers (Chunker, GraphBuilder, Radon)
-│   │   └── worker.py            # Celery Background Tasks
+│   │   └── worker.py            # Background Tasks
 │   └── requirements.txt         # Backend Dependencies
 │
 └── frontend/
@@ -76,7 +76,7 @@ opensource_compass/
 ### 1. Prerequisites
 - Python 3.10+
 - Node.js 18+
-- **Redis Server**
+- **Redis Server** (Optional, used for rate limiting. Falls back to in-memory)
 - **Supabase Account** with pgvector enabled
 
 ### 2. Environment Configuration
@@ -86,17 +86,16 @@ GOOGLE_API_KEY=your_gemini_key
 SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_supabase_key
 REDIS_URL=redis://localhost:6379/0
-CELERY_BROKER_URL=redis://localhost:6379/0
 ```
 
 ### 3. Database Setup
 Run the SQL script found in `PROJECT_DOCUMENTATION.md` inside your Supabase SQL Editor to create the necessary tables and functions.
 
 ### 4. Execution Order
-1. **Start Redis**: `redis-server`
-2. **Start Backend**: `uvicorn main:app --reload`
-3. **Start Worker**: `celery -A app.worker.celery_app worker --loglevel=info --pool=solo`
-4. **Start Frontend**: `npm run dev`
+1. **Start Backend**: `uvicorn main:app --reload`
+2. **Start Frontend**: `npm run dev`
+
+*(Optional) Start Redis Server if you want persistent rate limiting.*
 
 ---
 
